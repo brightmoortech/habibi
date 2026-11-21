@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from ._version import __version__
 from .core import audit
+from .reporting import TerminalReport
 from .plugins.manager import plugin_command
 
 
@@ -82,34 +83,10 @@ def main(argv=None):
             return 2
     else:
         report_path = None
-    result = audit(root, args.stop_on_finding)
-    print('Repository:', root)
-    print('Detected technologies:')
-    if not result['technologies']:
-        print('  None identified; generic scanning only')
-    for tech, evidence in result['technologies'].items():
-        print(f'  {tech}: {len(evidence)} evidence file(s)')
-    print('Declared packages/images:')
-    if not result['packages']:
-        print('  None identified')
-    for package in result['packages']:
-        print(f'  {package}')
-    print('Scan coverage:')
-    for name, status in result['coverage'].items():
-        print(f'  {name}: {status}')
-        if status.startswith('generic-only'):
-            print(f'    No specialized handling for {name}; generic scan applied.')
-    if result.get('coverage_issues'):
-        print('Coverage limitations:')
-        for issue in result['coverage_issues']:
-            print('  ' + issue)
-    print('Findings:', len(result['findings']))
-    for finding in result['findings'][:100]:
-        print(f"  [{finding['severity']}] {finding['source']}: {finding['category']} | {finding['path']}:{finding['line']}")
-    if len(result['findings']) > 100:
-        print(f"  ... {len(result['findings']) - 100} additional findings in report")
-    if result['stopped_early']:
-        print('Scan stopped early on a finding; remaining coverage unverified.')
+    print('Repository:', root, flush=True)
+    reporter = TerminalReport()
+    result = audit(root, args.stop_on_finding, progress=reporter)
+    reporter.finish(result)
     if report_path:
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')

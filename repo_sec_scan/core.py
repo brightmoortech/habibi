@@ -143,11 +143,22 @@ def staged_scan(root: Path) -> tuple[str, list[Finding]]:
         return ('findings' if findings else 'pass'), findings
 
 
-def audit(root: Path, stop_on_finding=False):
+def audit(root: Path, stop_on_finding=False, progress=None):
+    """Audit a repository; optional progress callback receives structured events.
+
+    Callbacks only report results, never control scanning. The result remains
+    usable independently of the CLI and retains its existing JSON fields.
+    """
+    def emit(kind, **data):
+        if progress is not None:
+            progress({'kind': kind, **data})
+
+    emit('discovery_start')
     ctx = Context(root, enumerate_files(root))
     discovery_issues = []
     packages = discover_packages(ctx, discovery_issues)
-    outcome = {'repository': str(root), 'technologies': discover(ctx),
+    technologies = discover(ctx)
+    outcome = {'repository': str(root), 'technologies': technologies,
                'packages': packages, 'coverage': {}, 'findings': [],
                'stopped_early': False, 'coverage_issues': discovery_issues}
 
@@ -158,32 +169,16 @@ def audit(root: Path, stop_on_finding=False):
             return True
         return False
 
-    for mode in ('git', 'dir'):
-        status, found = gitleaks_scan(root, mode)
-        outcome['coverage'][f'gitleaks_{mode}'] = status
-        if append(found):
-            return outcome
-    status, found = staged_scan(root)
-    outcome['coverage']['gitleaks_staged_and_generic'] = status
-    if append(found):
-        return outcome
-    generic_issues = []
-    found = generic_scan(ctx, stop_on_finding, generic_issues)
-    outcome['coverage_issues'].extend(generic_issues)
-    outcome['coverage']['generic'] = 'incomplete' if generic_issues else ('findings' if found else 'pass')
-    if append(found):
-        return outcome
-
+    # Determine technology coverage before scanning so discovery appears first.
+    # Plugin loading is subject to the existing static inspection and root guard.
     plugin_rows = inventory(exclude_root=root)
-    plugins = [p for _, p, _, error in plugin_rows if error is None]
+    plugins = [plugin for _, plugin, _, error in plugin_rows if error is None]
     for path, _, _, error in plugin_rows:
         if error and error != 'overridden':
             outcome['coverage'][f'plugin_load:{path.name}'] = 'plugin-error (incomplete): ' + error
 
-    # Declared names are never normalized to guessed products by the core.
-    # Each registered plugin owns its package and configuration recognition.
     active = {}
-    for package in packages:
+    for package, evidence in packages.items():
         matches = []
         for plugin in plugins:
             try:
@@ -195,6 +190,7 @@ def audit(root: Path, stop_on_finding=False):
             outcome['coverage'][f'package:{package}'] = 'specialized: ' + ', '.join(p.name for p in matches)
             for plugin in matches:
                 active[plugin.name] = plugin
+                technologies.setdefault(plugin.name, []).extend(evidence)
         else:
             outcome['coverage'][f'package:{package}'] = 'generic-only (no specialized plugin available)'
 
@@ -202,16 +198,59 @@ def audit(root: Path, stop_on_finding=False):
         try:
             if plugin.detect(ctx):
                 active[plugin.name] = plugin
+                technologies.setdefault(plugin.name, [])
         except Exception:
             outcome['coverage'][f'plugin_detect:{plugin.name}'] = 'plugin-error (incomplete)'
 
+    outcome['technologies'] = {name: sorted(set(evidence)) for name, evidence in sorted(technologies.items())}
+    emit('discovery_complete', technologies=outcome['technologies'], issues=list(discovery_issues))
+    emit('repository_start')
+
+    for mode in ('git', 'dir'):
+        label = 'Git history' if mode == 'git' else 'Working files'
+        emit('check_start', section='repository', label=label)
+        status, found = gitleaks_scan(root, mode)
+        outcome['coverage'][f'gitleaks_{mode}'] = status
+        emit('check_complete', section='repository', label=label, status=status,
+             findings=[vars(x) for x in found], issues=[])
+        if append(found):
+            return outcome
+
+    emit('check_start', section='repository', label='Staged files')
+    status, found = staged_scan(root)
+    outcome['coverage']['gitleaks_staged_and_generic'] = status
+    emit('check_complete', section='repository', label='Staged files', status=status,
+         findings=[vars(x) for x in found], issues=[])
+    if append(found):
+        return outcome
+
+    emit('check_start', section='repository', label='Generic checks')
+    generic_issues = []
+    found = generic_scan(ctx, stop_on_finding, generic_issues)
+    outcome['coverage_issues'].extend(generic_issues)
+    status = 'incomplete' if generic_issues else ('findings' if found else 'pass')
+    outcome['coverage']['generic'] = status
+    emit('check_complete', section='repository', label='Generic checks', status=status,
+         findings=[vars(x) for x in found], issues=generic_issues)
+    if append(found):
+        return outcome
+
+    emit('technology_start')
     for name, plugin in active.items():
+        emit('check_start', section='technology', label=name)
         try:
             result = plugin.scan(ctx, stop_on_finding)
             outcome['coverage_issues'].extend(result.coverage_issues)
-            outcome['coverage'][f'plugin:{name}'] = 'incomplete' if result.coverage_issues else ('findings' if result.findings else 'pass')
+            status = 'incomplete' if result.coverage_issues else ('findings' if result.findings else 'pass')
+            outcome['coverage'][f'plugin:{name}'] = status
+            emit('check_complete', section='technology', label=name, status=status,
+                 findings=[vars(x) for x in result.findings], issues=result.coverage_issues)
             if append(result.findings):
                 return outcome
         except Exception:
             outcome['coverage'][f'plugin:{name}'] = 'plugin-error (incomplete)'
+            emit('check_complete', section='technology', label=name, status='error',
+                 findings=[], issues=[f'{name}: plugin execution failed'])
+    emit('unsupported', packages=[pkg for pkg in packages
+                                  if outcome['coverage'][f'package:{pkg}'].startswith('generic-only')])
     return outcome

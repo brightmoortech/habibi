@@ -2,6 +2,16 @@
 
 Release history and validation records for Repo Security Scanner. For installation, usage, plugin development and security precautions, see [README.md](README.md).
 
+## v0.2.7 — Grouped terminal security report
+
+- **ISS-012:** "Discovered Technologies" includes both repository platform markers and technologies recognized through declared packages and specialized plugins, with available evidence file counts. Technology inventory no longer presents a misleading "Problems" count; genuine discovery limitations remain visible.
+- **ISS-013:** Live, ordered terminal sections for discovered technologies, repository security, technology security, unsupported packages, and a consolidated scan summary. Each check reports STARTED and its result, followed by the specific findings and coverage limitations associated with that check. Per-section totals and a final security finding breakdown accompany the details.
+- Docker image digests are shortened **only in terminal output**. Full original package references remain in JSON. Unsupported packages are explicitly described as generic-only coverage. Early-stop paths identify unfinished sections and incomplete coverage.
+- The scanner core supplies optional structured progress events; terminal formatting lives separately in `repo_sec_scan/reporting.py`. Existing JSON result fields and security detection rules remain supported.
+- Regression tests: `tests/test_reporting_027.py` covers discovery merging, execution order, grouped findings, per-section counts, unsupported packages, full JSON references, incomplete discovery, early-stop behavior, and CLI report output. All previous suites are retained.
+- **Review cycle:** First specification and code-quality inspection identified the need to keep discovery separate from findings and avoid changing JSON identifiers. Implementation fixes separated terminal rendering from scanning and added early-stop handling. Updated automated tests passed. Second inspection corrected no-plugin message ordering, avoided counting the same coverage issue twice in the final summary, and removed an unused reporting field. Final full regression: **83 tests passed, 0 failures** under a non-root Linux account; Python compilation and installer Bash syntax checks passed.
+- Remaining limitations: heuristic scanning does not establish safety; real Gitleaks execution and native macOS validation require end-user verification.
+
 ## v0.2.6 — Help clarity and portable Built-in plugin imports
 
 - **ISS-009:** Main `secscan --help` usage now shows both repository scanning and plugin-management command forms.

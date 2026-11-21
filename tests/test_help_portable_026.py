@@ -84,7 +84,7 @@ class PortablePlugins026(unittest.TestCase):
                 self.assertIsNone(rows[0][3])
 
     def test_version(self):
-        self.assertEqual(__version__, '0.2.6')
+        self.assertEqual(__version__, '0.2.7')
 
 
 if __name__ == '__main__':

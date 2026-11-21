@@ -93,22 +93,46 @@ The core reads **declared names** from supported repository files, without a cat
 
 For each declared package or image, `secscan` asks each installed plugin whether it **matches** the name. A plugin may also recognize configuration paths through its own `detect(context)` method. The generic scan always runs; matching plugins provide additional checks.
 
-Example:
+The terminal presents the scan in execution order, showing checks as they start and finish:
 
 ```text
-Declared packages/images:
-  metabase/metabase:latest
-  postgres:18
-  psycopg
-  some-unknown-package
-Scan coverage:
-  package:metabase/metabase:latest: generic-only (no specialized plugin available)
-    No specialized handling for package:metabase/metabase:latest; generic scan applied.
-  package:postgres:18: specialized: PostgreSQL
-  package:psycopg: specialized: PostgreSQL
-  package:some-unknown-package: generic-only (no specialized plugin available)
-  plugin:PostgreSQL: pass
+[1] DISCOVERED TECHNOLOGIES
+    Docker                 Detected
+    Python                 Detected
+    PostgreSQL             Detected
+    Windmill               Detected
+    Total: 4 technologies
+
+[2] REPOSITORY SECURITY
+    Git history            STARTED
+    Git history            PASS
+    Working files          PASS
+    Staged files           PASS
+    Generic checks         FINDINGS (1)
+      WARNING  sensitive filename (review if tracked) | compose/.env.example
+    Checks: 4 | Findings: 1 | Coverage limitations: 0
+
+[3] TECHNOLOGY SECURITY
+    Windmill               PASS
+    PostgreSQL             PASS
+    Checks: 2 | Findings: 0 | Coverage limitations: 0
+
+[4] UNSUPPORTED PACKAGES
+    caddy-l4:2.11.4-1      Generic checks only
+    pip                    Generic checks only
+    Total: 2 packages without specialized scanning
+
+SCAN SUMMARY
+    Technologies detected:       4
+    Specialized scanners run:    2
+    Unsupported packages:        2
+    Security findings:           1 (1 warning)
+    Scan coverage:               COMPLETE
 ```
+
+The example is illustrative; actual entries and counts depend on the repository. Each check also shows `STARTED` before completion, and findings or coverage problems are printed immediately below the check. The discovery phase lists both platform markers (such as Docker and Python) and technologies identified by specialized plugin matching (such as Windmill and PostgreSQL). A technology match signals a declared dependency or recognizable configuration, **not** proof that a service is running.
+
+Unsupported packages are grouped separately and still receive the generic checks. Docker image SHA-256 digests are shortened for terminal readability; the optional JSON report retains the **complete original** image references, findings, and coverage details. Missing plugins and incomplete checks are never represented as successful specialized scans. With `--stop-on-finding`, remaining sections are marked not run or not evaluated.
 
 This does not claim that `metabase/metabase:latest` has been validated by a Metabase-specific scanner. `psycopg` indicates a declared PostgreSQL client library; it does not prove that a local PostgreSQL server is deployed. Package inventories are best-effort and do not resolve transitive dependencies or all package-manager lock formats.
 

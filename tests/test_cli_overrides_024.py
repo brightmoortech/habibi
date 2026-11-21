@@ -40,7 +40,7 @@ class Overrides024(unittest.TestCase):
             with self.assertRaises(SystemExit) as end:
                 cli.main(['--version'])
         self.assertEqual(end.exception.code, 0)
-        self.assertIn('secscan 0.2.6', out.getvalue())
+        self.assertIn('secscan 0.2.7', out.getvalue())
         with contextlib.redirect_stdout(io.StringIO()) as out:
             with self.assertRaises(SystemExit):
                 cli.main(['--help'])
