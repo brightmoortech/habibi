@@ -1,5 +1,5 @@
 import re
-from ..models import Context, Finding, PluginResult
+from repo_sec_scan.models import Context, Finding, PluginResult
 
 TRUST = re.compile(r'^\s*(?:local|host(?:ssl|nossl)?)\s+\S+\s+\S+(?:\s+\S+)?\s+trust(?:\s|$)', re.I)
 SUPERUSER = re.compile(r'(?i)\b(?:CREATE|ALTER)\s+ROLE\b[^;\n]*\bSUPERUSER\b')

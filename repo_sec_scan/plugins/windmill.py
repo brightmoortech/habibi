@@ -1,5 +1,5 @@
 import re
-from ..models import Context, Finding, PluginResult
+from repo_sec_scan.models import Context, Finding, PluginResult
 
 # This plugin inspects repository content only; it never calls a Windmill API.
 CREDENTIAL = re.compile(r'''(?i)(?:client[_-]?secret|access[_-]?token|refresh[_-]?token|api[_-]?key|password)\s*[:=]\s*['"]([^'"\s]{8,})['"]''')

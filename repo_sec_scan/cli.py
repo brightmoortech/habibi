@@ -42,6 +42,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         prog='secscan',
         description='Read-only Git repository security audit.\n\nCommands:\n  secscan plugins <command> [arguments]    Manage security plugins\n  secscan plugins --help                  Show plugin commands',
+        usage='\n  secscan [-h] [--stop-on-finding] [--install-missing] [--report PATH] [--version] [repository]\n  secscan plugins <command> [arguments]',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''Examples:
   secscan                         Scan the current repository

@@ -2,6 +2,14 @@
 
 Release history and validation records for Repo Security Scanner. For installation, usage, plugin development and security precautions, see [README.md](README.md).
 
+## v0.2.6 — Help clarity and portable Built-in plugin imports
+
+- **ISS-009:** Main `secscan --help` usage now shows both repository scanning and plugin-management command forms.
+- **ISS-010:** `secscan plugins --help` now shows each subcommand, required or optional arguments, and a description; individual subcommand help remains available.
+- **ISS-011:** Windmill and PostgreSQL plugins now use absolute `repo_sec_scan.models` imports, so their files can be copied and installed unchanged as Custom plugins. This fixes the relative-import failure reported on macOS.
+- Added regression tests for command-help output, all plugin subcommand help screens, and end-to-end copied Built-in plugin installation and override restoration. Updated installer integration test for the two-line usage format. No changes to plugin loader design, detection rules, or core scanning behavior.
+- **Validation:** 72 tests passed, 0 failures or skips under a non-root Linux account, with the v0.2.6 wheel present. Python compilation and Bash syntax checks passed. Native macOS testing and live Gitleaks integration remain to be verified for this release.
+
 ## v0.2.5 — Source execution and macOS test portability
 
 **Scope:** Targeted correction of issues ISS-006–ISS-008. Scanner functionality, plugin architecture and security policy are unchanged.

@@ -125,6 +125,10 @@ All plugins, including the Built-in Windmill and PostgreSQL modules, are discove
 
 **Security warning:** Python plugins are executable code and may read, change or delete anything permitted to the running user. Only install code from trusted authors. An AST-based scan reduces the risk of some prohibited operations but **does not prove a plugin is safe**. Dynamic calls, aliases and indirect library behavior can evade detection. Never load plugins from a repository being scanned. Do not invoke plugin inspection or execution with `sudo`.
 
+### Command help
+
+`secscan --help` shows both forms of the command: repository scanning and `secscan plugins <command> [arguments]`. `secscan plugins --help` lists each plugin command, its required or optional arguments, and its purpose. Individual commands also accept `--help`.
+
 ### Complete Python plugin template
 
 Save as `example.py` (the filename is used during discovery):
@@ -157,6 +161,8 @@ def info():
         "description": "Example repository security checks",
     }
 ```
+
+Use **absolute imports** for scanner interfaces, for example `from repo_sec_scan.models import Context, Finding, PluginResult`. Do not use package-relative imports such as `from ..models import ...`: Custom plugins are independently loaded Python files and have no parent package context. You can copy a Built-in plugin file, adjust its `info()` version, and install it as a Custom override without rewriting its imports.
 
 `info()` must return a dictionary with a unique plugin name, a numeric dot-separated version, a nonempty list of technologies and a nonempty description. `PLUGIN.name` must match the `info()` name. Plugin code is inspected statically before it is imported or `info()` is called.
 

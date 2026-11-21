@@ -1,13 +1,14 @@
 """Installer integration smoke tests; run only when a release wheel is bundled."""
 import os
 from pathlib import Path
+from repo_sec_scan._version import __version__
 import shutil
 import subprocess
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-WHEEL = ROOT / 'dist' / 'repo_sec_scan-0.2.5-py3-none-any.whl'
+WHEEL = ROOT / 'dist' / f'repo_sec_scan-{__version__}-py3-none-any.whl'
 
 
 @unittest.skipUnless(WHEEL.exists() and shutil.which('bash'), 'release wheel/bash unavailable')
@@ -23,7 +24,7 @@ class InstallerTests(unittest.TestCase):
             repeated = subprocess.run(['bash', str(installer)], env=env, text=True, capture_output=True)
             self.assertEqual(repeated.returncode, 0, repeated.stderr)
             self.assertIn('already installed', repeated.stdout)
-            self.assertIn('usage: secscan', subprocess.check_output([str(prefix / 'bin' / 'secscan'), '--help'], text=True))
+            self.assertIn('secscan plugins <command> [arguments]', subprocess.check_output([str(prefix / 'bin' / 'secscan'), '--help'], text=True))
             # A later version whose package cannot be installed must not break the old command.
             mock_source = Path(temp) / 'broken'
             mock_source.mkdir()
@@ -32,11 +33,11 @@ class InstallerTests(unittest.TestCase):
             (mock_source / 'pyproject.toml').write_text(source, encoding='utf-8')
             (mock_source / 'repo_sec_scan').mkdir()
             version_source = (ROOT / 'repo_sec_scan' / '_version.py').read_text(encoding='utf-8')
-            (mock_source / 'repo_sec_scan' / '_version.py').write_text(version_source.replace('0.2.5', '0.2.6'), encoding='utf-8')
+            (mock_source / 'repo_sec_scan' / '_version.py').write_text(version_source.replace(__version__, '9.9.9'), encoding='utf-8')
             failure = subprocess.run(['bash', str(mock_source / 'install.sh')], env=env, text=True, capture_output=True)
             self.assertNotEqual(failure.returncode, 0)
-            self.assertFalse((prefix / 'lib/repo-sec-scan/releases/0.2.6').exists())
-            self.assertEqual((prefix / 'lib/repo-sec-scan/current').resolve().name, '0.2.5')
+            self.assertFalse((prefix / 'lib/repo-sec-scan/releases/9.9.9').exists())
+            self.assertEqual((prefix / 'lib/repo-sec-scan/current').resolve().name, __version__)
             self.assertEqual(subprocess.run([str(prefix / 'bin' / 'secscan'), 'plugins', 'list'], capture_output=True).returncode, 0)
 
     def test_help_does_not_install(self):

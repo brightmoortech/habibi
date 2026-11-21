@@ -140,15 +140,27 @@ def _install(path):
 
 
 def plugin_command(argv):
-    parser = argparse.ArgumentParser(prog='secscan plugins', description='Manage trusted Python security plugins.')
+    parser = argparse.ArgumentParser(
+        prog='secscan plugins',
+        description='Manage trusted Python security plugins.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        usage='\n  secscan plugins list\n  secscan plugins info <name>\n  secscan plugins audit [name]\n  secscan plugins install <file>\n  secscan plugins remove <name>',
+        epilog='''Plugin management commands:
+  list             List installed plugins
+  info <name>      Display plugin information
+  audit [name]     Audit all plugins or one plugin
+  install <file>   Install, reinstall, upgrade or downgrade a plugin
+  remove <name>    Remove a Custom plugin
+
+Use secscan plugins <command> --help for command-specific options.''')
     sub = parser.add_subparsers(dest='action', required=True)
-    sub.add_parser('list')
+    sub.add_parser('list', help='List installed plugins')
     for name in ('info', 'audit', 'remove'):
-        item = sub.add_parser(name)
+        item = sub.add_parser(name, help={'info': 'Display plugin information', 'audit': 'Audit plugins', 'remove': 'Remove a Custom plugin'}[name])
         item.add_argument('name', nargs='?' if name == 'audit' else None)
         if name == 'audit':
             item.add_argument('--static-only', action='store_true', help=argparse.SUPPRESS)
-    item = sub.add_parser('install')
+    item = sub.add_parser('install', help='Install, reinstall, upgrade or downgrade a plugin')
     item.add_argument('file')
     args = parser.parse_args(argv)
     try:
