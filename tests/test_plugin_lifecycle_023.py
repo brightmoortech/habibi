@@ -90,7 +90,7 @@ class PluginLifecycleTests(unittest.TestCase):
             self.assertIn(item, output)
         status, output, _ = self.command('info', 'Custom')
         self.assertEqual(status, 0)
-        self.assertIn('Technologies: Custom', output)
+        self.assertIn('Technologies:  Custom', output)
 
     def test_install_reinstall_upgrade(self):
         self.assertEqual(self.command('install', str(self.source()))[0], 0)

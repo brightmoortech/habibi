@@ -62,7 +62,9 @@ class TerminalReport:
             print('\n[3] TECHNOLOGY SECURITY')
             self.started.add('technology')
         elif kind == 'check_start':
-            print(f"    {event['label']:<22} STARTED", flush=True)
+            # Keep structured progress events for other consumers without
+            # emitting a redundant STARTED/PASS pair in terminal output.
+            pass
         elif kind == 'check_complete':
             findings = event['findings']
             issues = event['issues']

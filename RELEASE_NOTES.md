@@ -2,6 +2,17 @@
 
 Release history and validation records for Repo Security Scanner. For installation, usage, plugin development and security precautions, see [README.md](README.md).
 
+## v0.2.8 — Security detection and CLI presentation corrections
+
+- **ISS-014:** Removed redundant per-check `STARTED` lines from the terminal report. Structured progress callbacks remain available, and completed checks still display their status and findings.
+- **ISS-015:** Expanded generic hardcoded-credential detection for common case-insensitive variable names and prefixes (`USER1_PWD`, `USER1_PASSWORD`, `user_password`, `password`) and both quoted and unquoted assignments. Known placeholder/dynamic-reference forms are filtered heuristically; detected values are never reported. Full file and staged-blob scanning retain the same generic rules. This does **not** establish comprehensive credential detection.
+- **ISS-016:** Invalid repository paths and Git invocation access errors now return concise CLI errors instead of an unhandled traceback.
+- **ISS-017:** Added the `Description` heading in the main CLI help.
+- **ISS-018:** Main CLI help now explicitly lists all five plugin-management subcommands, including arguments and descriptions.
+- **ISS-019:** `plugins info` now separates each plugin record with a clear header and divider, including type and active/overridden status.
+- **Verification:** `tests/test_issues_028.py` covers each of the six issues, including the user's exact credential examples, no disclosure of values, invalid paths, CLI help and the Built-in/Custom override display. Existing test assertions for version and plugin-info formatting were updated. Linux release validation: **95 automated tests passed, 0 failures or skips** (including installer integration), Python compilation and Bash syntax validation passed. Tests executed as an unprivileged user.
+- **Limitations:** Credential heuristics may still yield false positives or miss secrets; static scanning and plugin execution are unchanged. Native macOS and real Gitleaks integration remain for end-user testing.
+
 ## v0.2.7 — Grouped terminal security report
 
 - **ISS-012:** "Discovered Technologies" includes both repository platform markers and technologies recognized through declared packages and specialized plugins, with available evidence file counts. Technology inventory no longer presents a misleading "Problems" count; genuine discovery limitations remain visible.

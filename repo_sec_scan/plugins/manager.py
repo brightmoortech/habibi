@@ -218,17 +218,20 @@ Use secscan plugins <command> --help for command-specific options.''')
                 if error and error != 'overridden':
                     print(f'{path.name}: {error}')
                     return 1
-                print('Name:', info['name'])
-                print('Version:', info['version'])
-                print('Technologies:', ', '.join(info['technologies']))
-                print('Description:', info['description'])
-                print('Filename:', path.name)
-                print('Type:', 'Built-in' if path.parent == registry.BUILTIN_DIRECTORY else 'Custom')
+                kind = 'Built-in' if path.parent == registry.BUILTIN_DIRECTORY else 'Custom'
                 overridden = (path.parent == registry.BUILTIN_DIRECTORY and any(
                     other[0].parent != registry.BUILTIN_DIRECTORY and other[2] and info and
                     other[2]['name'].casefold() == info['name'].casefold() and other[3] is None
                     for other in matching))
-                print('Status:', 'Overridden' if overridden or error == 'overridden' else 'Active')
+                status = 'Overridden' if overridden or error == 'overridden' else 'Active'
+                print('-' * 50)
+                print(f"{info['name']} | {kind} | {status}")
+                print('-' * 50)
+                print(f"Version:       {info['version']}")
+                print(f"Filename:      {path.name}")
+                print(f"Technologies:  {', '.join(info['technologies'])}")
+                print(f"Description:   {info['description']}")
+                print()
             return 0
         if args.action == 'remove':
             custom = [path for path, _, _, _ in matching if path.parent != registry.BUILTIN_DIRECTORY]

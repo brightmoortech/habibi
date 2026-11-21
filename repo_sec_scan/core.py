@@ -10,7 +10,36 @@ from .discovery import discover, discover_packages
 from .plugins.registry import inventory
 
 SENSITIVE_NAME = re.compile(r'(?i)(?:^|/)(?:\.env(?:\..+)?|id_rsa|id_ed25519|[^/]+\.(?:pem|p12|pfx|key)|credentials(?:\..+)?|secrets?(?:\..+)?)$')
-ASSIGNMENT = re.compile(r'''(?i)\b(?:client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|password)\b\s*[:=]\s*['"]([^'"\s]{8,})['"]''')
+# Match assignments, not arbitrary occurrence of credential-related words. Values
+# are never included in Finding objects or reports.
+ASSIGNMENT = re.compile(r"(?<![\w.-])(?P<name>[A-Za-z_][\w-]*)\s*[:=]\s*(?P<value>\"[^\"\r\n]*\"|'[^'\r\n]*'|[^\s,;#]+)")
+CREDENTIAL_NAME = re.compile(
+    r"(?i)(?:^|[_-])(?:password|passwd|pwd|secret|token|api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token)(?:$|[_-])"
+)
+PLACEHOLDER_VALUES = frozenset({'', 'none', 'null', 'nil', 'true', 'false', 'example',
+                                'placeholder', 'changeme', 'change_me', 'dummy',
+                                'your_password', 'your_secret', 'test', 'sample'})
+
+
+def _credential_assignment(line: str) -> bool:
+    # Ignore full-line comments. This is a heuristic rather than a language parser.
+    if line.lstrip().startswith(('#', '//', ';')):
+        return False
+    for match in ASSIGNMENT.finditer(line):
+        name = match.group('name').casefold()
+        if (not CREDENTIAL_NAME.search(name) or name.startswith('non_')
+                or name.endswith(('_name', '_path', '_file', '_ref', '_reference'))):
+            continue
+        value = match.group('value').strip().strip('\"\'').strip()
+        normalized = value.casefold()
+        if (not value or normalized in PLACEHOLDER_VALUES
+                or normalized.startswith(('${', '{{', '$var:', '$env:', 'env(',
+                                          'getenv(', 'os.getenv(', 'os.environ',
+                                          'config(', 'settings.', 'self.'))
+                or all(c in '*xX.' for c in value)):
+            continue
+        return True
+    return False
 URL_CREDS = re.compile(r'(?i)\b(?:postgres(?:ql)?|mysql|redis|mongodb(?:\+srv)?)://[^\s/@:]+:[^\s/@]+@')
 MAX_FILE_BYTES = 1_000_000
 
@@ -54,7 +83,7 @@ def generic_scan(ctx: Context, stop=False, issues=None) -> list[Finding]:
                 continue
             with path.open(encoding='utf-8', errors='replace') as f:
                 for lineno, line in enumerate(f, 1):
-                    if ASSIGNMENT.search(line) or URL_CREDS.search(line):
+                    if _credential_assignment(line) or URL_CREDS.search(line):
                         findings.append(Finding('Generic', 'possible literal credential', 'high', rel, lineno))
                         if stop:
                             return findings

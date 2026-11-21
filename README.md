@@ -1,19 +1,19 @@
 # Repo Security Scanner
 
-A modular, **read-only-by-default** security audit tool for Git repositories that you intend to publish or make public. It combines broad secret scanning with repository technology discovery and optional technology-specific checks.
+A modular, **read-only-by-default** security audit tool for Git repositories that you intend to publish or make public. It combines secret scanning, repository technology discovery, and technology-specific checks when a matching plugin is available.
 
 **A clean audit is not a guarantee that a repository is safe to publish.** Gitleaks detects recognizable secrets; additional checks are heuristic. Review licenses, private information, test data, exported infrastructure settings and upstream forks/caches before changing repository visibility.
 
 ## Features
 
-- Runs [Gitleaks](https://github.com/gitleaks/gitleaks) against **Git history** (all locally available refs), the **working directory**, and the **staged snapshot**.
+- Runs [Gitleaks](https://github.com/gitleaks/gitleaks) against **Git history** (locally available refs), the **working directory**, and a temporary copy of **changed files in the Git index** (staged additions, copies, modifications and renames). It does not independently scan every unchanged staged file.
 - Scans accessible repository files for recognizable credential assignments and sensitive filenames.
 - Inventories declared package and image names from supported repository manifests without guessing product names. It does not inspect machine-installed software or execute detected code.
 - Runs a dedicated scanner when a supported technology is detected. Otherwise explicitly reports **no specialized handling; generic scan applied**.
 - **Included independent security plugins:** Windmill and PostgreSQL. Plugins own their package matching and configuration detection. Additional plugins are discovered from a dedicated plugin directory without changing the core.
 - Default completes all checks; `--stop-on-finding` exits early when a **high-severity potential exposure** is reported; review-only warnings do not stop the scan.
-- Does not print matched secret values or source lines. Optional JSON report is written outside the repository with restricted file permissions when supported.
-- Works on macOS and Linux with Python 3.9+.
+- The core and included plugins do not put matched credential values or source lines into findings. A JSON report is written only when requested, outside the audited repository, and the tool attempts to restrict its permissions. Custom plugins are executable code and must be reviewed separately for data disclosure.
+- Targets macOS and Linux with Python 3.9+. Platform compatibility depends on the selected Python interpreter, required tools, and their availability; native platform testing is still recommended.
 
 ## Architecture
 
@@ -21,14 +21,14 @@ A modular, **read-only-by-default** security audit tool for Git repositories tha
 CLI (repo_sec_scan/cli.py)
   ├── dependency preflight: Git / Gitleaks
   ├── core.py: file enumeration and scan orchestration
-  │     ├── Gitleaks Git history / working directory / staged snapshot
+  │     ├── Gitleaks Git history / working directory / changed staged files
   │     ├── generic repository scanning
   │     └── discovery.py: project markers + raw declared package/image names
   ├── plugins/registry.py: directory discovery + security-first validation
   │     └── plugin.matches(package) / plugin.detect(context) → plugin.scan(context)
   │     ├── plugins/windmill.py: Windmill export/credential heuristics
   │     └── plugins/postgresql.py: SQL, authentication and credential heuristics
-  └── report aggregation: findings and coverage, no matched values
+  └── reporting.py: terminal progress and summary (core results also support JSON)
 ```
 
 Generic scanning always runs. A plugin supplements rather than replaces it. Plugin failures are marked **incomplete**, never as a pass. The scan does not call Windmill APIs, query PostgreSQL, modify repositories, or fetch remote Git refs.
@@ -41,7 +41,7 @@ From the downloaded or cloned `repo-sec-scan` folder, use the **same command** f
 sudo ./install.sh
 ```
 
-The installer makes `secscan` available to all users through `/usr/local/bin/secscan`. The Python package runs in its own environment under `/usr/local/lib/repo-sec-scan/releases/`, rather than changing the system Python installation. Python 3.9+ and its `venv` module are required; the included wheel avoids downloading build dependencies for a normal install on current Python versions. A Python 3.9/3.10 installation may additionally need the `tomli` dependency from a configured package index.
+By default, the installer links `secscan` at `/usr/local/bin/secscan`; it is available as a shell command when that directory is in the user’s `PATH`. The Python package runs in its own environment under `/usr/local/lib/repo-sec-scan/releases/`, rather than changing the system Python installation. Python 3.9+ and its `venv` module are required; the included wheel avoids downloading build dependencies for a normal install on current Python versions. A Python 3.9/3.10 installation may additionally need the `tomli` dependency from a configured package index.
 
 The installer checks the current release and upgrades only when the new version is higher. It does nothing when versions match, blocks core downgrades, statically checks bundled plugins without executing them as root, and retains the previous release for rollback if verification fails. It refuses to overwrite an unrelated existing `/usr/local/bin/secscan` command. Do not use an unreviewed or untrusted source archive with `sudo`.
 
@@ -72,7 +72,7 @@ The scanner does not fetch, push, rewrite Git history or modify tracked project 
 | --- | --- |
 | `repository` | Optional path inside target Git repository; default `.`. |
 | `-h`, `--help` | Display help text and all arguments, including plugin command syntax. |
-| `--version` | Display the installed secscan version. |
+| `--version` | Display the secscan application version (including when run from source). |
 | `--stop-on-finding` | Stop on the first high-severity potential exposure. Review-only warnings do not stop the audit. Default runs all checks. |
 | `--install-missing` | Offer approved package-manager installation of missing Git/Gitleaks tools. No automatic installation by default. |
 | `--report PATH` | Save a JSON report; the script rejects a destination inside the audited repository. |
@@ -89,11 +89,11 @@ Exit codes: **0** completed without findings, **1** completed with findings, **2
 
 ## Technology discovery and handling
 
-The core reads **declared names** from supported repository files, without a catalog that guesses which product each name represents. Sources include `requirements*.txt`, PEP 621 `project.dependencies` and `project.optional-dependencies`, Poetry dependency groups, PEP 735 `[dependency-groups]` in `pyproject.toml`, `package.json`, Docker Compose `image:` declarations, and Dockerfile `FROM` declarations. Some project markers (such as `pyproject.toml`, Helm files and `.github/workflows/`) are also reported.
+The core reads **declared names** from supported repository files, without a catalog that guesses which product each name represents. Sources include `requirements.txt` and `requirements-*.txt`, PEP 621 `project.dependencies` and `project.optional-dependencies`, Poetry dependency groups, PEP 735 `[dependency-groups]` in `pyproject.toml`, `package.json`, Docker Compose `image:` declarations, and Dockerfile `FROM` declarations. Some project markers (such as `pyproject.toml`, Helm files and `.github/workflows/`) are also reported.
 
-For each declared package or image, `secscan` asks each installed plugin whether it **matches** the name. A plugin may also recognize configuration paths through its own `detect(context)` method. The generic scan always runs; matching plugins provide additional checks.
+For each declared package or image, `secscan` asks each active, validated plugin whether it **matches** the name. A plugin may also recognize configuration paths through its own `detect(context)` method. The generic scan always runs; matching plugins provide additional checks. Generic credential heuristics recognize quoted and unquoted assignments using names such as `password`, `user_password`, `USER1_PWD`, `api_key`, and `access_token`. They flag suspicious assignments for review but cannot reliably distinguish real credentials from examples in every programming language. Core-generated findings do not include matched values; Custom plugins must follow the same convention.
 
-The terminal presents the scan in execution order, showing checks as they start and finish:
+The terminal presents the scan in execution order, showing each completed check once, followed by its findings or coverage limitations:
 
 ```text
 [1] DISCOVERED TECHNOLOGIES
@@ -104,7 +104,6 @@ The terminal presents the scan in execution order, showing checks as they start 
     Total: 4 technologies
 
 [2] REPOSITORY SECURITY
-    Git history            STARTED
     Git history            PASS
     Working files          PASS
     Staged files           PASS
@@ -130,9 +129,9 @@ SCAN SUMMARY
     Scan coverage:               COMPLETE
 ```
 
-The example is illustrative; actual entries and counts depend on the repository. Each check also shows `STARTED` before completion, and findings or coverage problems are printed immediately below the check. The discovery phase lists both platform markers (such as Docker and Python) and technologies identified by specialized plugin matching (such as Windmill and PostgreSQL). A technology match signals a declared dependency or recognizable configuration, **not** proof that a service is running.
+The example is illustrative; actual entries and counts depend on the repository. Findings or coverage problems are printed immediately below the completed check; redundant `STARTED` lines are omitted. The discovery phase lists both platform markers (such as Docker and Python) and technologies identified by specialized plugin matching (such as Windmill and PostgreSQL). A technology match signals a declared dependency or recognizable configuration, **not** proof that a service is running.
 
-Unsupported packages are grouped separately and still receive the generic checks. Docker image SHA-256 digests are shortened for terminal readability; the optional JSON report retains the **complete original** image references, findings, and coverage details. Missing plugins and incomplete checks are never represented as successful specialized scans. With `--stop-on-finding`, remaining sections are marked not run or not evaluated.
+Unsupported packages are grouped separately; they have no specialized scanner, although repository-level generic checks still run on eligible files. Docker image SHA-256 digests are omitted from terminal labels for readability; the optional JSON report retains the **complete original** image references, findings, and coverage details. Missing plugins and incomplete checks are never represented as successful specialized scans. With `--stop-on-finding`, remaining sections are marked not run or not evaluated.
 
 This does not claim that `metabase/metabase:latest` has been validated by a Metabase-specific scanner. `psycopg` indicates a declared PostgreSQL client library; it does not prove that a local PostgreSQL server is deployed. Package inventories are best-effort and do not resolve transitive dependencies or all package-manager lock formats.
 
@@ -210,7 +209,7 @@ A rejected Custom candidate does not replace the Built-in version, and an invali
 ```bash
 secscan plugins list                 # Table: name, version, filename, type, status
 secscan plugins info Example         # Metadata for one plugin (supports filename too)
-secscan plugins audit                # Static security and interface audit of all
+secscan plugins audit                # Security inspection and runtime interface audit of all
 secscan plugins audit Example        # Audit one plugin (supports filename too)
 secscan plugins install ./example.py # New install, reinstall, upgrade or downgrade
 secscan plugins remove Example       # Remove a Custom plugin (restores overridden Built-in)
@@ -235,16 +234,16 @@ eval
 exec
 ```
 
-The Python AST inspector ignores comments, detects direct function calls and some imported aliases, and reports the line number and operation. Invalid rules, malformed source and recognized prohibited calls fail inspection. This is a heuristic policy, not a sandbox or guarantee of safety. Add additional names to the flat file as needed. Installation and audit perform security inspection before any plugin code is executed.
+The Python AST inspector ignores comments, detects direct function calls and some imported aliases, and reports the line number and operation. Invalid rules, malformed source and recognized prohibited calls fail inspection. This is a heuristic policy, not a sandbox or guarantee of safety. Add additional names to the flat file as needed. Plugin installation and audit perform static security inspection **before** executing plugin code; normal plugin audits then load the plugin to validate its runtime interface. An audit is therefore not a safe way to execute arbitrary untrusted plugin files.
 
 ## Audit coverage and limitations
 
 - The Git scan covers objects reachable from **local** refs (including fetched remote-tracking refs), not unreachable objects, inaccessible remote refs, deleted hosted history, other forks, issue attachments, CI artifacts or already-copied public material. Run `git fetch` yourself if appropriate.
-- Scanning the staging snapshot separately helps catch a staged secret that differs from the working copy. The staged snapshot is written only to a temporary directory and removed on completion.
-- `git ls-files` plus unignored files controls generic/plugin file enumeration. Git-ignored files may still be examined by Gitleaks directory mode, depending on its configuration; review exclusions.
-- Generic/plugin heuristic scans skip files larger than 1 MB and are not parsers for every configuration language. Skipped/unreadable/oversized applicable files and malformed dependency manifests are now shown as **incomplete coverage**, with a nonzero error exit code; Gitleaks has separate scanning behavior. The output does not claim that every possible file format or Gitleaks exclusion was audited.
+- Changed staged files are reconstructed from the Git index and scanned separately. This helps catch staged secrets that differ from the working copy, but unchanged files in the index are **not** duplicated into the temporary scan. The temporary files are removed on completion.
+- `git ls-files` plus unignored files controls generic/plugin file enumeration. Symbolic links and files outside the repository are not included in that enumeration. Git-ignored files may still be examined by Gitleaks directory mode, depending on its configuration; review exclusions.
+- Generic/plugin heuristic scans skip applicable files larger than 1,000,000 bytes and are not parsers for every configuration language. Detected unreadable/oversized applicable files and malformed supported dependency manifests are reported as **incomplete coverage**, with a nonzero error exit code; enumeration exclusions and unrecognized file formats are not exhaustive coverage checks. Gitleaks has separate scanning behavior. The output does not claim that every possible file format or Gitleaks exclusion was audited.
 - This is **not** a live Windmill variable audit or a PostgreSQL server/role audit. Secrets stored only in Windmill's database are not automatically in Git, but exports or scripts may have copied their values.
-- Reports do not contain matched values by design, but file paths and infrastructure names may themselves be sensitive. Store reports outside the public repository.
+- Core and Built-in plugin findings deliberately omit matched values, but Custom plugins control their own results, and file paths and infrastructure names may themselves be sensitive. Review Custom plugins and store reports outside the public repository.
 - Dependency installation is opt-in and changes the machine; the audit itself does not modify the target repository.
 
 ## Testing
@@ -259,6 +258,22 @@ Tests do not require a real Windmill or PostgreSQL server. Live Gitleaks end-to-
 ## Public release checklist
 
 Complete all checks, investigate findings, confirm staged/working/history coverage, check for credentials not recognized by scanners, review committed personal/client data and proprietary assets, and rotate any credential that was ever exposed. Do not assume removing a secret from the current branch removes it from earlier commits. History rewrites require explicit planning and may not remove copies already fetched by others.
+
+## Roadmap (not implemented)
+
+### Optional local-LLM security analysis
+
+Consider an opt-in mode (proposed `--llm`) that uses a **locally hosted** model, such as Ollama, to analyze suspicious repository configuration and code in context, identify potential security risks missed by deterministic rules, and explain findings. This would supplement, **not replace**, Gitleaks, generic checks or specialized plugins.
+
+Design safeguards for any future implementation:
+
+- Verify that the configured LLM endpoint is local; do not send repository content to an external service.
+- Treat repository text as untrusted input, not instructions to the model.
+- Track which files or excerpts were analyzed and report failed, skipped or incomplete analysis explicitly.
+- Prefer targeted files or excerpts to limit runtime and resource use.
+- Do not silently dismiss deterministic findings based on LLM output.
+
+This capability is **a future proposal only**. The current release does not provide an `--llm` option. Generic credential assignment detection is independent of an LLM and remains heuristic.
 
 ## Release history
 

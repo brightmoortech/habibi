@@ -42,7 +42,18 @@ def install_missing(missing):
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog='secscan',
-        description='Read-only Git repository security audit.\n\nCommands:\n  secscan plugins <command> [arguments]    Manage security plugins\n  secscan plugins --help                  Show plugin commands',
+        description='''Description:
+  Read-only Git repository security audit.
+
+Commands:
+  secscan plugins list              List installed plugins
+  secscan plugins info <name>       Display plugin information
+  secscan plugins audit [name]      Audit all plugins or one plugin
+  secscan plugins install <file>    Install, reinstall or replace a plugin
+  secscan plugins remove <name>     Remove a Custom plugin
+
+  secscan plugins --help           Show detailed plugin command help''',
+
         usage='\n  secscan [-h] [--stop-on-finding] [--install-missing] [--report PATH] [--version] [repository]\n  secscan plugins <command> [arguments]',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''Examples:
@@ -65,13 +76,23 @@ def main(argv=None):
     if args_list and args_list[0] == 'plugins':
         return plugin_command(args_list[1:])
     args = parser.parse_args(args_list)
+    where = Path(args.repository).expanduser().resolve()
+    if not where.exists():
+        print(f'Error: Repository path does not exist: {args.repository}', file=sys.stderr)
+        return 2
+    if not where.is_dir():
+        print(f'Error: Repository path is not a directory: {args.repository}', file=sys.stderr)
+        return 2
     missing = [item for item in ('git', 'gitleaks') if not shutil.which(item)]
     if missing and not (args.install_missing and install_missing(missing)):
         print('Missing dependencies: ' + ', '.join(missing), file=sys.stderr)
         print('Install them manually or rerun with --install-missing.', file=sys.stderr)
         return 2
-    where = Path(args.repository).expanduser().resolve()
-    repo = subprocess.run(['git','rev-parse','--show-toplevel'], cwd=where, capture_output=True, text=True)
+    try:
+        repo = subprocess.run(['git','rev-parse','--show-toplevel'], cwd=where, capture_output=True, text=True)
+    except OSError as exc:
+        print(f'Error: Cannot access repository path: {args.repository} ({exc.strerror or exc})', file=sys.stderr)
+        return 2
     if repo.returncode:
         print('Not inside a Git repository.', file=sys.stderr)
         return 2

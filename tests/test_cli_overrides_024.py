@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from repo_sec_scan import cli
+from repo_sec_scan._version import __version__
 from repo_sec_scan.plugins import manager, registry
 from repo_sec_scan.core import audit
 from test_plugin_lifecycle_023 import TEMPLATE
@@ -40,7 +41,7 @@ class Overrides024(unittest.TestCase):
             with self.assertRaises(SystemExit) as end:
                 cli.main(['--version'])
         self.assertEqual(end.exception.code, 0)
-        self.assertIn('secscan 0.2.7', out.getvalue())
+        self.assertIn('secscan ' + __version__, out.getvalue())
         with contextlib.redirect_stdout(io.StringIO()) as out:
             with self.assertRaises(SystemExit):
                 cli.main(['--help'])
