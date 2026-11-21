@@ -6,12 +6,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from repo_sec_scan.discovery import discover_packages
-from repo_sec_scan.models import Context, PluginResult
-from repo_sec_scan.core import audit
-from repo_sec_scan.plugins.registry import load_plugins
-from repo_sec_scan.plugins.windmill import PLUGIN as WM
-from repo_sec_scan.plugins.postgresql import PLUGIN as PG
+from habibi.discovery import discover_packages
+from habibi.models import Context, PluginResult
+from habibi.core import audit
+from habibi.plugins.registry import load_plugins
+from habibi.plugins.windmill import PLUGIN as WM
+from habibi.plugins.postgresql import PLUGIN as PG
 
 
 class DiscoveryTests(unittest.TestCase):
@@ -91,7 +91,7 @@ Path(args[args.index('--report-path')+1]).write_text('[]')
     def test_directory_plugin_loading(self):
         with tempfile.TemporaryDirectory() as folder:
             plugin = Path(folder) / 'extra.py'
-            plugin.write_text("""from repo_sec_scan.models import PluginResult
+            plugin.write_text("""from habibi.models import PluginResult
 class Extra:
     name = 'Extra'
     def matches(self, package): return package == 'extra'
@@ -100,7 +100,7 @@ class Extra:
 PLUGIN = Extra()
 def info(): return {'name': 'Extra', 'version': '1.0.0', 'technologies': ['Extra'], 'description': 'test'}
 """)
-            with patch.dict(os.environ, {'SECSCAN_PLUGIN_DIR': folder}):
+            with patch.dict(os.environ, {'HABIBI_PLUGIN_DIR': folder}):
                 names = [p.name for p in load_plugins()]
         self.assertIn('Extra', names)
         self.assertIn('PostgreSQL', names)

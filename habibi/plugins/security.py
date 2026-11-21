@@ -7,12 +7,12 @@ DEFAULT_RULES = Path(__file__).with_name('plugin_security_rules.txt')
 
 
 def rules_path():
-    if 'SECSCAN_PLUGIN_RULES' in os.environ:
-        return Path(os.environ['SECSCAN_PLUGIN_RULES']).expanduser()
+    if 'HABIBI_PLUGIN_RULES' in os.environ:
+        return Path(os.environ['HABIBI_PLUGIN_RULES']).expanduser()
     import sys
     prefix = Path(sys.prefix).resolve()
-    if prefix.parent.name == 'releases' and prefix.parent.parent.name == 'repo-sec-scan':
-        installed = prefix.parents[3] / 'share' / 'secscan' / 'plugin_security_rules.txt'
+    if prefix.parent.name == 'releases' and prefix.parent.parent.name == 'habibi':
+        installed = prefix.parents[3] / 'share' / 'habibi' / 'plugin_security_rules.txt'
         if installed.exists():
             return installed
     return DEFAULT_RULES

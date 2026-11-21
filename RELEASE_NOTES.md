@@ -1,6 +1,15 @@
 # Release Notes
 
-Release history and validation records for Repo Security Scanner. For installation, usage, plugin development and security precautions, see [README.md](README.md).
+Release history for **Habibi** (formerly **Repo Security Scanner**). For current installation and usage, see [README.md](README.md).
+
+## v0.3.0 — Habibi rename
+
+- Renamed the product, CLI command, Python distribution and import package, system installation paths, configuration environment variables, and Custom plugin directory to `habibi`.
+- Preserved the security scanning functionality and Built-in/Custom plugin override behavior.
+- This is a fresh install, not an in-place migration. The legacy `secscan` installation and Custom plugins remain untouched. Any plugins carried forward must use `habibi` imports and be reinstalled.
+- Retained two documentation files: `README.md` and `RELEASE_NOTES.md`.
+
+## Historical releases (v0.2.x, originally distributed as `secscan`)
 
 ## v0.2.8 — Security detection and CLI presentation corrections
 

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from repo_sec_scan.core import audit, gitleaks_scan
+from habibi.core import audit, gitleaks_scan
 
 class CoreTests(unittest.TestCase):
     def setUp(self):

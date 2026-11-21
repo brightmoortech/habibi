@@ -8,11 +8,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from repo_sec_scan import cli
-from repo_sec_scan.core import _credential_assignment, audit, generic_scan
-from repo_sec_scan.models import Context
-from repo_sec_scan.plugins import manager
-from repo_sec_scan.reporting import TerminalReport
+from habibi import cli
+from habibi.core import _credential_assignment, audit, generic_scan
+from habibi.models import Context
+from habibi.plugins import manager
+from habibi.reporting import TerminalReport
 
 
 class Issues028(unittest.TestCase):
@@ -25,15 +25,15 @@ class Issues028(unittest.TestCase):
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
         self.custom = self.root / 'plugins'
         self.custom.mkdir()
-        env = patch.dict(os.environ, {'SECSCAN_PLUGIN_DIR': str(self.custom)})
+        env = patch.dict(os.environ, {'HABIBI_PLUGIN_DIR': str(self.custom)})
         env.start()
         self.addCleanup(env.stop)
 
     def test_014_no_started_output_and_final_status(self):
         report = TerminalReport()
         with contextlib.redirect_stdout(io.StringIO()) as screen:
-            with patch('repo_sec_scan.core.gitleaks_scan', return_value=('pass', [])), \
-                 patch('repo_sec_scan.core.staged_scan', return_value=('pass', [])):
+            with patch('habibi.core.gitleaks_scan', return_value=('pass', [])), \
+                 patch('habibi.core.staged_scan', return_value=('pass', [])):
                 result = audit(self.repo, progress=report)
                 report.finish(result)
         self.assertNotIn('STARTED', screen.getvalue())
@@ -73,8 +73,8 @@ class Issues028(unittest.TestCase):
 
     def test_015_early_stop_and_untracked(self):
         (self.repo / 'untracked.conf').write_text('USER1_PASSWORD=hello1234')
-        with patch('repo_sec_scan.core.gitleaks_scan', return_value=('pass', [])), \
-             patch('repo_sec_scan.core.staged_scan', return_value=('pass', [])):
+        with patch('habibi.core.gitleaks_scan', return_value=('pass', [])), \
+             patch('habibi.core.staged_scan', return_value=('pass', [])):
             result = audit(self.repo, stop_on_finding=True)
         self.assertTrue(result['stopped_early'])
         self.assertTrue(any(f['path'] == 'untracked.conf' for f in result['findings']))
@@ -96,8 +96,8 @@ class Issues028(unittest.TestCase):
         self.assertIn('not a directory', error.getvalue())
 
     def test_016_oserror_during_git_lookup(self):
-        with patch('repo_sec_scan.cli.shutil.which', return_value='/usr/bin/tool'), \
-             patch('repo_sec_scan.cli.subprocess.run', side_effect=PermissionError(13, 'Permission denied')):
+        with patch('habibi.cli.shutil.which', return_value='/usr/bin/tool'), \
+             patch('habibi.cli.subprocess.run', side_effect=PermissionError(13, 'Permission denied')):
             with contextlib.redirect_stderr(io.StringIO()) as error:
                 code = cli.main([str(self.repo)])
         self.assertEqual(code, 2)
@@ -114,7 +114,7 @@ class Issues028(unittest.TestCase):
             with self.assertRaises(SystemExit): cli.main(['--help'])
         text = output.getvalue().split('Commands:', 1)[1].split('positional arguments:', 1)[0]
         for command in ('list', 'info <name>', 'audit [name]', 'install <file>', 'remove <name>'):
-            self.assertIn('secscan plugins ' + command, text)
+            self.assertIn('habibi plugins ' + command, text)
 
     def test_019_info_dividers_built_in(self):
         with contextlib.redirect_stdout(io.StringIO()) as output:
@@ -125,7 +125,7 @@ class Issues028(unittest.TestCase):
         self.assertIn('Filename:      windmill.py', output.getvalue())
 
     def test_019_info_dividers_with_override(self):
-        source = Path(__file__).parents[1] / 'repo_sec_scan' / 'plugins' / 'windmill.py'
+        source = Path(__file__).parents[1] / 'habibi' / 'plugins' / 'windmill.py'
         custom = self.custom / 'windmill.py'
         custom.write_text(source.read_text().replace("'version': '1.0.0'", "'version': '2.0.1'"))
         with contextlib.redirect_stdout(io.StringIO()) as output:

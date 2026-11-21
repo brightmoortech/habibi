@@ -7,11 +7,11 @@ BUILTIN_DIRECTORY = Path(__file__).resolve().parent
 
 
 def external_directory():
-    if 'SECSCAN_PLUGIN_DIR' in os.environ:
-        return Path(os.environ['SECSCAN_PLUGIN_DIR']).expanduser().resolve()
+    if 'HABIBI_PLUGIN_DIR' in os.environ:
+        return Path(os.environ['HABIBI_PLUGIN_DIR']).expanduser().resolve()
     # Third-party plugins belong to the invoking user. This avoids requiring
     # administrator privileges to inspect or execute third-party code.
-    return Path.home() / '.local' / 'share' / 'secscan' / 'plugins'
+    return Path.home() / '.local' / 'share' / 'habibi' / 'plugins'
 
 
 def candidates():
@@ -51,7 +51,7 @@ def load(path):
     if os.geteuid() == 0:
         raise ValueError('plugin execution disabled under root; run as a normal user')
     is_bundled = path.parent == BUILTIN_DIRECTORY
-    name = f'{__package__}.{path.stem}' if is_bundled else '_secscan_external_' + path.stem
+    name = f'{__package__}.{path.stem}' if is_bundled else '_habibi_external_' + path.stem
     module = ModuleType(name)
     module.__file__ = str(path)
     module.__package__ = __package__ if is_bundled else ''

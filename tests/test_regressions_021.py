@@ -6,9 +6,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from repo_sec_scan.core import audit, generic_scan
-from repo_sec_scan.discovery import discover_packages
-from repo_sec_scan.models import Context
+from habibi.core import audit, generic_scan
+from habibi.discovery import discover_packages
+from habibi.models import Context
 
 
 class Regression021Tests(unittest.TestCase):

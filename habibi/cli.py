@@ -41,37 +41,37 @@ def install_missing(missing):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        prog='secscan',
+        prog='habibi',
         description='''Description:
   Read-only Git repository security audit.
 
 Commands:
-  secscan plugins list              List installed plugins
-  secscan plugins info <name>       Display plugin information
-  secscan plugins audit [name]      Audit all plugins or one plugin
-  secscan plugins install <file>    Install, reinstall or replace a plugin
-  secscan plugins remove <name>     Remove a Custom plugin
+  habibi plugins list              List installed plugins
+  habibi plugins info <name>       Display plugin information
+  habibi plugins audit [name]      Audit all plugins or one plugin
+  habibi plugins install <file>    Install, reinstall or replace a plugin
+  habibi plugins remove <name>     Remove a Custom plugin
 
-  secscan plugins --help           Show detailed plugin command help''',
+  habibi plugins --help           Show detailed plugin command help''',
 
-        usage='\n  secscan [-h] [--stop-on-finding] [--install-missing] [--report PATH] [--version] [repository]\n  secscan plugins <command> [arguments]',
+        usage='\n  habibi [-h] [--stop-on-finding] [--install-missing] [--report PATH] [--version] [repository]\n  habibi plugins <command> [arguments]',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''Examples:
-  secscan                         Scan the current repository
-  secscan /path/to/repository     Scan another Git repository
-  secscan --stop-on-finding       Stop at the first high-severity potential exposure
-  secscan --report ~/audit.json   Save a JSON report outside the repository
-  secscan plugins list           Show plugin name, version and filename
-  secscan plugins audit [name]   Audit all plugins or one plugin
-  secscan plugins install FILE   Install or replace a trusted plugin
-  secscan --version               Show application version
-  secscan --help                  Show this help'''
+  habibi                         Scan the current repository
+  habibi /path/to/repository     Scan another Git repository
+  habibi --stop-on-finding       Stop at the first high-severity potential exposure
+  habibi --report ~/audit.json   Save a JSON report outside the repository
+  habibi plugins list           Show plugin name, version and filename
+  habibi plugins audit [name]   Audit all plugins or one plugin
+  habibi plugins install FILE   Install or replace a trusted plugin
+  habibi --version               Show application version
+  habibi --help                  Show this help'''
     )
     parser.add_argument('repository', nargs='?', default='.', help='Git project root or a path inside it (default: current directory)')
     parser.add_argument('--stop-on-finding', action='store_true', help='Stop at first high-severity potential exposure; warnings do not stop the audit')
     parser.add_argument('--install-missing', action='store_true', help='Offer interactive Homebrew/APT installation for missing Git/Gitleaks (never silent)')
     parser.add_argument('--report', metavar='PATH', help='Write JSON report (avoid placing report inside the repository)')
-    parser.add_argument('--version', action='version', version=f'secscan {__version__}')
+    parser.add_argument('--version', action='version', version=f'habibi {__version__}')
     args_list = list(sys.argv[1:] if argv is None else argv)
     if args_list and args_list[0] == 'plugins':
         return plugin_command(args_list[1:])

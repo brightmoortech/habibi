@@ -8,10 +8,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from repo_sec_scan.plugins import manager, registry, security
-from repo_sec_scan.core import audit
+from habibi.plugins import manager, registry, security
+from habibi.core import audit
 
-TEMPLATE = '''from repo_sec_scan.models import PluginResult
+TEMPLATE = '''from habibi.models import PluginResult
 class Scanner:
     name = "{name}"
     def matches(self, package): return package == "{match}"
@@ -32,7 +32,7 @@ class PluginLifecycleTests(unittest.TestCase):
         self.plugin_dir.mkdir()
         self.rules = self.root / 'rules.txt'
         self.rules.write_text('shutil.rmtree\nos.remove\nos.system\neval\nexec\n')
-        env = patch.dict(os.environ, {'SECSCAN_PLUGIN_DIR': str(self.plugin_dir), 'SECSCAN_PLUGIN_RULES': str(self.rules)})
+        env = patch.dict(os.environ, {'HABIBI_PLUGIN_DIR': str(self.plugin_dir), 'HABIBI_PLUGIN_RULES': str(self.rules)})
         env.start()
         self.addCleanup(env.stop)
 
@@ -191,13 +191,13 @@ class PluginLifecycleTests(unittest.TestCase):
         self.assertTrue(any(error and 'duplicate' in error for _, _, _, error in rows))
 
     def test_no_root_execution(self):
-        with patch('repo_sec_scan.plugins.manager.os.geteuid', return_value=0):
+        with patch('habibi.plugins.manager.os.geteuid', return_value=0):
             self.assertEqual(self.command('list')[0], 2)
             self.assertEqual(self.command('install', str(self.source()))[0], 2)
 
     def test_plugin_error_reduces_coverage(self):
         from unittest.mock import patch
-        from repo_sec_scan import core
+        from habibi import core
         with patch.object(core, 'inventory', return_value=[(Path('bad.py'), None, None, 'invalid')]), \
              patch.object(core, 'enumerate_files', return_value=[]), \
              patch.object(core, 'gitleaks_scan', return_value=('pass', [])), \
@@ -218,13 +218,13 @@ class PluginLifecycleTests(unittest.TestCase):
 
     def test_inspected_bytes_are_executed(self):
         source = self.source()
-        with patch('repo_sec_scan.plugins.registry.inspect', wraps=security.inspect) as inspected:
+        with patch('habibi.plugins.registry.inspect', wraps=security.inspect) as inspected:
             plugin, info = registry.load(source)
         self.assertEqual(plugin.name, 'Custom')
         self.assertIsNotNone(inspected.call_args.kwargs.get('source'))
 
     def test_repo_plugin_dir_env_is_never_executed_during_audit(self):
-        with patch.dict(os.environ, {'SECSCAN_PLUGIN_DIR': str(self.root)}):
+        with patch.dict(os.environ, {'HABIBI_PLUGIN_DIR': str(self.root)}):
             self.source(name='RepoOnly')
             results = registry.inventory(exclude_root=self.root)
         self.assertTrue(any(error and 'inside repository' in error for _, _, _, error in results))
@@ -244,20 +244,20 @@ class PluginLifecycleTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         readme = (root / 'README.md').read_text()
         for expected in ('def info():', 'PLUGIN = ExamplePlugin()',
-                         'secscan plugins audit Example', 'secscan plugins install ./example.py',
+                         'habibi plugins audit Example', 'habibi plugins install ./example.py',
                          'plugin_security_rules.txt', 'does not prove a plugin is safe',
                          'Never run plugin commands with `sudo`'):
             self.assertIn(expected, readme)
 
     def test_legacy_cli_and_help(self):
         env = dict(os.environ)
-        command = [os.sys.executable, '-m', 'repo_sec_scan']
+        command = [os.sys.executable, '-m', 'habibi']
         test = subprocess.run(command + ['plugins', 'list'], capture_output=True, text=True, env=env)
         self.assertEqual(test.returncode, 0, test.stderr)
         self.assertIn('FILENAME', test.stdout)
         help_result = subprocess.run(command + ['--help'], capture_output=True, text=True, env=env)
         self.assertEqual(help_result.returncode, 0)
-        self.assertIn('secscan plugins audit', help_result.stdout)
+        self.assertIn('habibi plugins audit', help_result.stdout)
 
 
 if __name__ == '__main__':

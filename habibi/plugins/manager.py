@@ -141,10 +141,10 @@ def _install(path):
 
 def plugin_command(argv):
     parser = argparse.ArgumentParser(
-        prog='secscan plugins',
+        prog='habibi plugins',
         description='Manage trusted Python security plugins.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        usage='\n  secscan plugins list\n  secscan plugins info <name>\n  secscan plugins audit [name]\n  secscan plugins install <file>\n  secscan plugins remove <name>',
+        usage='\n  habibi plugins list\n  habibi plugins info <name>\n  habibi plugins audit [name]\n  habibi plugins install <file>\n  habibi plugins remove <name>',
         epilog='''Plugin management commands:
   list             List installed plugins
   info <name>      Display plugin information
@@ -152,7 +152,7 @@ def plugin_command(argv):
   install <file>   Install, reinstall, upgrade or downgrade a plugin
   remove <name>    Remove a Custom plugin
 
-Use secscan plugins <command> --help for command-specific options.''')
+Use habibi plugins <command> --help for command-specific options.''')
     sub = parser.add_subparsers(dest='action', required=True)
     sub.add_parser('list', help='List installed plugins')
     for name in ('info', 'audit', 'remove'):

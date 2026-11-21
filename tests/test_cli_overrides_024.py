@@ -6,10 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from repo_sec_scan import cli
-from repo_sec_scan._version import __version__
-from repo_sec_scan.plugins import manager, registry
-from repo_sec_scan.core import audit
+from habibi import cli
+from habibi._version import __version__
+from habibi.plugins import manager, registry
+from habibi.core import audit
 from test_plugin_lifecycle_023 import TEMPLATE
 
 
@@ -22,7 +22,7 @@ class Overrides024(unittest.TestCase):
         self.directory.mkdir()
         rules = self.root / 'rules.txt'
         rules.write_text('os.remove\nshutil.rmtree\nexec\neval\n')
-        patcher = patch.dict(os.environ, {'SECSCAN_PLUGIN_DIR': str(self.directory), 'SECSCAN_PLUGIN_RULES': str(rules)})
+        patcher = patch.dict(os.environ, {'HABIBI_PLUGIN_DIR': str(self.directory), 'HABIBI_PLUGIN_RULES': str(rules)})
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -41,12 +41,12 @@ class Overrides024(unittest.TestCase):
             with self.assertRaises(SystemExit) as end:
                 cli.main(['--version'])
         self.assertEqual(end.exception.code, 0)
-        self.assertIn('secscan ' + __version__, out.getvalue())
+        self.assertIn('habibi ' + __version__, out.getvalue())
         with contextlib.redirect_stdout(io.StringIO()) as out:
             with self.assertRaises(SystemExit):
                 cli.main(['--help'])
-        self.assertIn('secscan plugins <command>', out.getvalue())
-        self.assertIn('secscan plugins audit', out.getvalue())
+        self.assertIn('habibi plugins <command>', out.getvalue())
+        self.assertIn('habibi plugins audit', out.getvalue())
 
     def test_redundant_option_removed(self):
         with contextlib.redirect_stderr(io.StringIO()):

@@ -1,11 +1,11 @@
 import tempfile
 import unittest
 from pathlib import Path
-from repo_sec_scan.discovery import discover
-from repo_sec_scan.models import Context
-from repo_sec_scan.plugins.postgresql import PLUGIN as PG
-from repo_sec_scan.plugins.windmill import PLUGIN as WM
-from repo_sec_scan.core import generic_scan
+from habibi.discovery import discover
+from habibi.models import Context
+from habibi.plugins.postgresql import PLUGIN as PG
+from habibi.plugins.windmill import PLUGIN as WM
+from habibi.core import generic_scan
 
 class ScannerTests(unittest.TestCase):
     def setUp(self):

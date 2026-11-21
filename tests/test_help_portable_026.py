@@ -6,9 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from repo_sec_scan import cli
-from repo_sec_scan.plugins import manager, registry
-from repo_sec_scan._version import __version__
+from habibi import cli
+from habibi.plugins import manager, registry
+from habibi._version import __version__
 
 
 class PortablePlugins026(unittest.TestCase):
@@ -18,7 +18,7 @@ class PortablePlugins026(unittest.TestCase):
         self.root = Path(temp.name)
         self.custom = self.root / 'plugins'
         self.custom.mkdir()
-        patcher = patch.dict(os.environ, {'SECSCAN_PLUGIN_DIR': str(self.custom)})
+        patcher = patch.dict(os.environ, {'HABIBI_PLUGIN_DIR': str(self.custom)})
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -33,8 +33,8 @@ class PortablePlugins026(unittest.TestCase):
                 cli.main(['-h'])
         self.assertEqual(exc.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn('secscan [-h]', help_text)
-        self.assertIn('secscan plugins <command> [arguments]', help_text)
+        self.assertIn('habibi [-h]', help_text)
+        self.assertIn('habibi plugins <command> [arguments]', help_text)
         self.assertIn('usage:', help_text)
 
     def test_plugin_help_documents_all_syntax(self):
@@ -44,7 +44,7 @@ class PortablePlugins026(unittest.TestCase):
         self.assertEqual(exc.exception.code, 0)
         text = output.getvalue()
         for command in ('list', 'info <name>', 'audit [name]', 'install <file>', 'remove <name>'):
-            self.assertIn('secscan plugins ' + command, text)
+            self.assertIn('habibi plugins ' + command, text)
         self.assertIn('Plugin management commands:', text)
         self.assertIn('Remove a Custom plugin', text)
 
@@ -63,7 +63,7 @@ class PortablePlugins026(unittest.TestCase):
                 original = registry.BUILTIN_DIRECTORY / (stem + '.py')
                 source = self.root / (stem + '.py')
                 content = original.read_text(encoding='utf-8')
-                self.assertIn('from repo_sec_scan.models import', content)
+                self.assertIn('from habibi.models import', content)
                 source.write_text(content.replace('"version": "1.0.0"', '"version": "2.0.0"'), encoding='utf-8')
                 self.assertIn('"version": "2.0.0"', source.read_text())
                 before = original.read_bytes()

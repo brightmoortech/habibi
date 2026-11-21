@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "repo-sec-scan"
+name = "habibi"
 dynamic = ["version"]
 description = "Modular read-only Git repository public-release security auditor"
 requires-python = ">=3.9"
@@ -11,13 +11,13 @@ dependencies = ["tomli>=2.0; python_version < '3.11'"]
 license = {text = "MIT"}
 
 [project.scripts]
-secscan = "repo_sec_scan.cli:main"
+habibi = "habibi.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["repo_sec_scan*"]
+include = ["habibi*"]
 
 [tool.setuptools.package-data]
-"repo_sec_scan.plugins" = ["plugin_security_rules.txt"]
+"habibi.plugins" = ["plugin_security_rules.txt"]
 
 [tool.setuptools.dynamic]
-version = {attr = "repo_sec_scan._version.__version__"}
+version = {attr = "habibi._version.__version__"}

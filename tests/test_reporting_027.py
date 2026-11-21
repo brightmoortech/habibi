@@ -9,10 +9,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from repo_sec_scan import cli
-from repo_sec_scan.core import audit
-from repo_sec_scan.models import Finding
-from repo_sec_scan.reporting import TerminalReport, _short_package
+from habibi import cli
+from habibi.core import audit
+from habibi.models import Finding
+from habibi.reporting import TerminalReport, _short_package
 
 
 class Reporting027(unittest.TestCase):
@@ -24,7 +24,7 @@ class Reporting027(unittest.TestCase):
         subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
         self.plugins = Path(tmp.name) / 'plugins'
         self.plugins.mkdir()
-        env = patch.dict(os.environ, {'SECSCAN_PLUGIN_DIR': str(self.plugins)})
+        env = patch.dict(os.environ, {'HABIBI_PLUGIN_DIR': str(self.plugins)})
         env.start()
         self.addCleanup(env.stop)
         self.digest = 'ghcr.io/windmill-labs/windmill:1.848.3@sha256:' + 'a' * 64
@@ -37,8 +37,8 @@ class Reporting027(unittest.TestCase):
     def scan(self, *, stop=False, callbacks=None, gitleaks=None):
         if gitleaks is None:
             gitleaks = ('pass', [])
-        with patch('repo_sec_scan.core.gitleaks_scan', return_value=gitleaks), \
-             patch('repo_sec_scan.core.staged_scan', return_value=('pass', [])):
+        with patch('habibi.core.gitleaks_scan', return_value=gitleaks), \
+             patch('habibi.core.staged_scan', return_value=('pass', [])):
             return audit(self.root, stop, callbacks)
 
     def test_discovered_technologies_merge_platform_and_specialized(self):
@@ -125,9 +125,9 @@ class Reporting027(unittest.TestCase):
     def test_cli_prints_live_sections_and_writes_original_json_shape(self):
         with tempfile.TemporaryDirectory() as temp:
             report_path = Path(temp) / 'audit.json'
-            with patch('repo_sec_scan.cli.shutil.which', return_value='/usr/bin/tool'), \
-                 patch('repo_sec_scan.core.gitleaks_scan', return_value=('pass', [])), \
-                 patch('repo_sec_scan.core.staged_scan', return_value=('pass', [])), \
+            with patch('habibi.cli.shutil.which', return_value='/usr/bin/tool'), \
+                 patch('habibi.core.gitleaks_scan', return_value=('pass', [])), \
+                 patch('habibi.core.staged_scan', return_value=('pass', [])), \
                  contextlib.redirect_stdout(io.StringIO()) as screen:
                 exit_code = cli.main(['--report', str(report_path), str(self.root)])
             self.assertEqual(exit_code, 1)
@@ -139,7 +139,7 @@ class Reporting027(unittest.TestCase):
             self.assertIn('findings', stored)
 
     def test_specialized_problem_displayed_under_technology(self):
-        from repo_sec_scan.models import PluginResult
+        from habibi.models import PluginResult
 
         class ExampleScanner:
             name = 'Example'
@@ -156,7 +156,7 @@ class Reporting027(unittest.TestCase):
 
         fake_plugin = (self.root / 'example.py', ExampleScanner(), {'name': 'Example'}, None)
         reporter = TerminalReport()
-        with patch('repo_sec_scan.core.inventory', return_value=[fake_plugin]), \
+        with patch('habibi.core.inventory', return_value=[fake_plugin]), \
              contextlib.redirect_stdout(io.StringIO()) as screen:
             result = self.scan(callbacks=reporter)
             reporter.finish(result)
@@ -169,7 +169,7 @@ class Reporting027(unittest.TestCase):
 
     def test_without_plugins_reports_no_specialized_scanner(self):
         reporter = TerminalReport()
-        with patch('repo_sec_scan.core.inventory', return_value=[]), \
+        with patch('habibi.core.inventory', return_value=[]), \
              contextlib.redirect_stdout(io.StringIO()) as screen:
             result = self.scan(callbacks=reporter)
             reporter.finish(result)
