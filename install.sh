@@ -39,13 +39,17 @@ if [[ "$PREFIX" == /usr/local && "$(id -u)" -ne 0 ]]; then
   echo 'System-wide installation requires root. Run: sudo ./install.sh' >&2; exit 2
 fi
 
-VERSION="$($PYTHON - "$SCRIPT_DIR/pyproject.toml" <<'PY'
-import pathlib, re, sys
-p = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
-match = re.search(r'(?m)^version\s*=\s*"([0-9]+(?:\.[0-9]+){1,3})"\s*$', p)
-if not match:
-    sys.exit('Cannot determine a numeric release version from pyproject.toml.')
-print(match.group(1))
+VERSION="$($PYTHON - "$SCRIPT_DIR/repo_sec_scan/_version.py" <<'PY'
+import ast, pathlib, re, sys
+path = pathlib.Path(sys.argv[1])
+tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+values = [node.value.value for node in tree.body
+          if isinstance(node, ast.Assign)
+          and any(isinstance(target, ast.Name) and target.id == '__version__' for target in node.targets)
+          and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)]
+if len(values) != 1 or not re.fullmatch(r'[0-9]+(?:\.[0-9]+){1,3}', values[0]):
+    sys.exit('Cannot determine numeric release version from _version.py.')
+print(values[0])
 PY
 )"
 BASE="$PREFIX/lib/repo-sec-scan"

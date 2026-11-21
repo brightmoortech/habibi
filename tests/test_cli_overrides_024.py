@@ -40,7 +40,7 @@ class Overrides024(unittest.TestCase):
             with self.assertRaises(SystemExit) as end:
                 cli.main(['--version'])
         self.assertEqual(end.exception.code, 0)
-        self.assertIn('secscan 0.2.4', out.getvalue())
+        self.assertIn('secscan 0.2.5', out.getvalue())
         with contextlib.redirect_stdout(io.StringIO()) as out:
             with self.assertRaises(SystemExit):
                 cli.main(['--help'])
@@ -69,7 +69,7 @@ class Overrides024(unittest.TestCase):
         windmill = [r for r in rows if r[2] and r[2]['name'] == 'Windmill']
         self.assertEqual(len(windmill), 2)
         self.assertEqual(len([r for r in windmill if r[3] is None]), 1)
-        self.assertEqual(next(r for r in windmill if r[3] is None)[0], target)
+        self.assertEqual(next(r for r in windmill if r[3] is None)[0].resolve(), target.resolve())
         self.assertEqual(next(r for r in windmill if r[0].parent == registry.BUILTIN_DIRECTORY)[3], 'overridden')
         self.assertEqual(len([p for p in registry.load_plugins() if p.name == 'Windmill']), 1)
         code, listing, _ = self.command('list')
@@ -96,7 +96,7 @@ class Overrides024(unittest.TestCase):
         path.write_text(TEMPLATE.format(name='Windmill', version='3.0.0', match='windmill'))
         with patch.object(registry, 'inventory', side_effect=AssertionError('unexpected full inventory')):
             matches = manager._matching('windmill.py')
-        self.assertEqual({r[0].parent for r in matches}, {registry.BUILTIN_DIRECTORY, self.directory})
+        self.assertEqual({r[0].parent.resolve() for r in matches}, {registry.BUILTIN_DIRECTORY.resolve(), self.directory.resolve()})
 
     def test_fallback_display_name(self):
         source = self.root / 'custom.py'
@@ -106,7 +106,7 @@ class Overrides024(unittest.TestCase):
         target.write_bytes(source.read_bytes())
         matches = manager._matching('MyPlugin')
         self.assertEqual(len(matches), 1)
-        self.assertEqual(matches[0][0], target)
+        self.assertEqual(matches[0][0].resolve(), target.resolve())
 
     def test_override_security_failure_does_not_replace_builtin_or_load_custom(self):
         self.directory.joinpath('windmill.py').write_text('import os\nos.remove("/tmp/not-executed")\n')

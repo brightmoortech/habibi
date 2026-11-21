@@ -160,6 +160,21 @@ def info():
 
 `info()` must return a dictionary with a unique plugin name, a numeric dot-separated version, a nonempty list of technologies and a nonempty description. `PLUGIN.name` must match the `info()` name. Plugin code is inspected statically before it is imported or `info()` is called.
 
+### Plugin lookup and listing
+
+`secscan plugins list` prints **PLUGIN NAME, VERSION, FILENAME, TYPE, STATUS**. `TYPE` is `Built-in` or `Custom`; `STATUS` is `Active`, `Overridden` or `Invalid`. A Custom plugin replaces the Built-in plugin **by declared name**, regardless of whether its filename differs. Both can use `windmill.py`. `info` and `remove` first try a direct filename lookup (accepting `windmill` or `windmill.py`) to avoid inventorying every plugin for ordinary operations. Where the requested display name does not match a filename, they fall back to inspecting the dedicated plugin directories; they do not recursively search arbitrary libraries or repositories. `list` and scanning must inspect all installed plugins to discover and validate their metadata.
+
+Example after installing a Custom Windmill override:
+
+```text
+PLUGIN NAME  VERSION  FILENAME       TYPE      STATUS
+PostgreSQL   1.0.0    postgresql.py  Built-in  Active
+Windmill     1.0.0    windmill.py    Built-in  Overridden
+Windmill     2.0.0    windmill.py    Custom    Active
+```
+
+A rejected Custom candidate does not replace the Built-in version, and an invalid Custom file is reported rather than executed. Static security scanning still occurs before any plugin Python execution. Passing inspection **does not prove a plugin is safe**.
+
 ### Commands
 
 ```bash
@@ -215,28 +230,10 @@ Tests do not require a real Windmill or PostgreSQL server. Live Gitleaks end-to-
 
 Complete all checks, investigate findings, confirm staged/working/history coverage, check for credentials not recognized by scanners, review committed personal/client data and proprietary assets, and rotate any credential that was ever exposed. Do not assume removing a secret from the current branch removes it from earlier commits. History rewrites require explicit planning and may not remove copies already fetched by others.
 
+## Release history
+
+See [RELEASE_NOTES.md](RELEASE_NOTES.md) for version changes, issue resolutions, validation records and test traceability.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-## v0.2.1 changes
-
-- Structured TOML parsing improves recognition of optional and grouped dependencies without guessing technology names.
-- `--stop-on-finding` only stops on high-severity suspected exposures; warning-only conditions allow the audit to finish.
-- Oversized/unreadable files and invalid supported manifests are explicitly reported as coverage limitations. A clean finding count cannot override incomplete coverage.
-- Regression tests include a repository with a fictitious, unsupported package name; it is listed verbatim and receives the generic-only fallback.
-
-### Plugin lookup and listing
-
-`secscan plugins list` prints **PLUGIN NAME, VERSION, FILENAME, TYPE, STATUS**. `TYPE` is `Built-in` or `Custom`; `STATUS` is `Active`, `Overridden` or `Invalid`. A Custom plugin replaces the Built-in plugin **by declared name**, regardless of whether its filename differs. Both can use `windmill.py`. `info` and `remove` first try a direct filename lookup (accepting `windmill` or `windmill.py`) to avoid inventorying every plugin for ordinary operations. Where the requested display name does not match a filename, they fall back to inspecting the dedicated plugin directories; they do not recursively search arbitrary libraries or repositories. `list` and scanning must inspect all installed plugins to discover and validate their metadata.
-
-Example after installing a Custom Windmill override:
-
-```text
-PLUGIN NAME  VERSION  FILENAME       TYPE      STATUS
-PostgreSQL   1.0.0    postgresql.py  Built-in  Active
-Windmill     1.0.0    windmill.py    Built-in  Overridden
-Windmill     2.0.0    windmill.py    Custom    Active
-```
-
-A rejected Custom candidate does not replace the Built-in version, and an invalid Custom file is reported rather than executed. Static security scanning still occurs before any plugin Python execution. Passing inspection **does not prove a plugin is safe**.

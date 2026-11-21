@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-WHEEL = ROOT / 'dist' / 'repo_sec_scan-0.2.4-py3-none-any.whl'
+WHEEL = ROOT / 'dist' / 'repo_sec_scan-0.2.5-py3-none-any.whl'
 
 
 @unittest.skipUnless(WHEEL.exists() and shutil.which('bash'), 'release wheel/bash unavailable')
@@ -29,11 +29,14 @@ class InstallerTests(unittest.TestCase):
             mock_source.mkdir()
             shutil.copy(installer, mock_source / 'install.sh')
             source = (ROOT / 'pyproject.toml').read_text(encoding='utf-8')
-            (mock_source / 'pyproject.toml').write_text(source.replace('version = "0.2.4"', 'version = "0.2.5"'), encoding='utf-8')
+            (mock_source / 'pyproject.toml').write_text(source, encoding='utf-8')
+            (mock_source / 'repo_sec_scan').mkdir()
+            version_source = (ROOT / 'repo_sec_scan' / '_version.py').read_text(encoding='utf-8')
+            (mock_source / 'repo_sec_scan' / '_version.py').write_text(version_source.replace('0.2.5', '0.2.6'), encoding='utf-8')
             failure = subprocess.run(['bash', str(mock_source / 'install.sh')], env=env, text=True, capture_output=True)
             self.assertNotEqual(failure.returncode, 0)
-            self.assertFalse((prefix / 'lib/repo-sec-scan/releases/0.2.5').exists())
-            self.assertEqual((prefix / 'lib/repo-sec-scan/current').resolve().name, '0.2.4')
+            self.assertFalse((prefix / 'lib/repo-sec-scan/releases/0.2.6').exists())
+            self.assertEqual((prefix / 'lib/repo-sec-scan/current').resolve().name, '0.2.5')
             self.assertEqual(subprocess.run([str(prefix / 'bin' / 'secscan'), 'plugins', 'list'], capture_output=True).returncode, 0)
 
     def test_help_does_not_install(self):

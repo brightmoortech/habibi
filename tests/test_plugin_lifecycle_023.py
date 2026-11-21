@@ -131,12 +131,15 @@ class PluginLifecycleTests(unittest.TestCase):
         original = dest.read_bytes()
         real_load = registry.load
         def fails_after_activation(path):
-            if Path(path) == dest:
+            if Path(path).resolve() == dest.resolve():
                 raise ValueError('injected post-activation failure')
             return real_load(path)
         with patch.object(registry, 'load', side_effect=fails_after_activation):
             self.assertEqual(self.command('install', str(self.source('2.0.0')))[0], 2)
         self.assertEqual(dest.read_bytes(), original)
+        restored, restored_info = registry.load(dest)
+        self.assertEqual(restored.name, "Custom")
+        self.assertEqual(restored_info["version"], "1.0.0")
 
     def test_remove_external_but_not_bundled(self):
         self.command('install', str(self.source()))
@@ -227,7 +230,7 @@ class PluginLifecycleTests(unittest.TestCase):
         self.assertTrue(any(error and 'inside repository' in error for _, _, _, error in results))
 
     def test_external_plugin_directory_not_tied_to_release(self):
-        self.assertEqual(registry.external_directory(), self.plugin_dir)
+        self.assertEqual(registry.external_directory().resolve(), self.plugin_dir.resolve())
         self.assertNotIn('releases', str(self.plugin_dir))
 
     def test_installer_static_only(self):

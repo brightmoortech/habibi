@@ -1,6 +1,5 @@
 """Command line entry point. Read-only except explicit dependency installation/report writing."""
 import argparse
-from importlib.metadata import version, PackageNotFoundError
 import json
 import os
 import platform
@@ -8,6 +7,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from ._version import __version__
 from .core import audit
 from .plugins.manager import plugin_command
 
@@ -58,7 +58,7 @@ def main(argv=None):
     parser.add_argument('--stop-on-finding', action='store_true', help='Stop at first high-severity potential exposure; warnings do not stop the audit')
     parser.add_argument('--install-missing', action='store_true', help='Offer interactive Homebrew/APT installation for missing Git/Gitleaks (never silent)')
     parser.add_argument('--report', metavar='PATH', help='Write JSON report (avoid placing report inside the repository)')
-    parser.add_argument('--version', action='version', version='secscan %(version)s' % {'version': version('repo-sec-scan')})
+    parser.add_argument('--version', action='version', version=f'secscan {__version__}')
     args_list = list(sys.argv[1:] if argv is None else argv)
     if args_list and args_list[0] == 'plugins':
         return plugin_command(args_list[1:])

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repo-sec-scan"
-version = "0.2.4"
+dynamic = ["version"]
 description = "Modular read-only Git repository public-release security auditor"
 requires-python = ">=3.9"
 dependencies = ["tomli>=2.0; python_version < '3.11'"]
@@ -18,3 +18,6 @@ include = ["repo_sec_scan*"]
 
 [tool.setuptools.package-data]
 "repo_sec_scan.plugins" = ["plugin_security_rules.txt"]
+
+[tool.setuptools.dynamic]
+version = {attr = "repo_sec_scan._version.__version__"}
