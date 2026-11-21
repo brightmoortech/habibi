@@ -1,5 +1,6 @@
 """Command line entry point. Read-only except explicit dependency installation/report writing."""
 import argparse
+from importlib.metadata import version, PackageNotFoundError
 import json
 import os
 import platform
@@ -40,7 +41,7 @@ def install_missing(missing):
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog='secscan',
-        description='Read-only Git repository security audit.',
+        description='Read-only Git repository security audit.\n\nCommands:\n  secscan plugins <command> [arguments]    Manage security plugins\n  secscan plugins --help                  Show plugin commands',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''Examples:
   secscan                         Scan the current repository
@@ -50,21 +51,18 @@ def main(argv=None):
   secscan plugins list           Show plugin name, version and filename
   secscan plugins audit [name]   Audit all plugins or one plugin
   secscan plugins install FILE   Install or replace a trusted plugin
-  secscan --list-plugins          Alias for plugins list
+  secscan --version               Show application version
   secscan --help                  Show this help'''
     )
     parser.add_argument('repository', nargs='?', default='.', help='Git project root or a path inside it (default: current directory)')
     parser.add_argument('--stop-on-finding', action='store_true', help='Stop at first high-severity potential exposure; warnings do not stop the audit')
     parser.add_argument('--install-missing', action='store_true', help='Offer interactive Homebrew/APT installation for missing Git/Gitleaks (never silent)')
     parser.add_argument('--report', metavar='PATH', help='Write JSON report (avoid placing report inside the repository)')
-    parser.add_argument('--list-plugins', action='store_true', help='Show installed specialized scanner plugins and exit')
+    parser.add_argument('--version', action='version', version='secscan %(version)s' % {'version': version('repo-sec-scan')})
     args_list = list(sys.argv[1:] if argv is None else argv)
     if args_list and args_list[0] == 'plugins':
         return plugin_command(args_list[1:])
     args = parser.parse_args(args_list)
-    if args.list_plugins:
-        return plugin_command(['list'])
-        return 0
     missing = [item for item in ('git', 'gitleaks') if not shutil.which(item)]
     if missing and not (args.install_missing and install_missing(missing)):
         print('Missing dependencies: ' + ', '.join(missing), file=sys.stderr)

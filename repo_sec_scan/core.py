@@ -177,7 +177,7 @@ def audit(root: Path, stop_on_finding=False):
     plugin_rows = inventory(exclude_root=root)
     plugins = [p for _, p, _, error in plugin_rows if error is None]
     for path, _, _, error in plugin_rows:
-        if error:
+        if error and error != 'overridden':
             outcome['coverage'][f'plugin_load:{path.name}'] = 'plugin-error (incomplete): ' + error
 
     # Declared names are never normalized to guessed products by the core.

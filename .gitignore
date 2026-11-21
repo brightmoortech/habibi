@@ -4,10 +4,10 @@ __pycache__/
 *.egg-info/
 build/
 dist/
-.DS_Store
 .pytest_cache/
 .env
 .env.*
 !.env.example
 *.swp
 .audit/
+.DS_Store

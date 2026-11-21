@@ -70,19 +70,34 @@ def load(path):
 
 
 def inventory(exclude_root=None):
-    """One result per file; noncompliant files remain visible in audit."""
+    """Inventory both sources; a valid Custom plugin overrides a Built-in by name.
+
+    Rows retain the original four-field interface consumed by the scanner.
+    Overridden Built-in rows remain visible, but have no executable plugin.
+    """
     rows = []
-    names = set()
+    names = {}
     for path in candidates():
         try:
             if exclude_root is not None and path.resolve().is_relative_to(Path(exclude_root).resolve()):
                 raise ValueError('plugin path is inside repository being scanned')
-            if os.geteuid() == 0:
-                raise ValueError('plugin execution disabled under root; run as a normal user')
             plugin, info = load(path)
-            if info['name'].casefold() in names:
-                raise ValueError('duplicate plugin name')
-            names.add(info['name'].casefold())
+            key = info['name'].casefold()
+            kind = 'Built-in' if path.parent == BUILTIN_DIRECTORY else 'Custom'
+            previous = names.get(key)
+            if previous is not None:
+                previous_index, previous_kind = previous
+                if previous_kind == kind:
+                    raise ValueError('duplicate plugin name')
+                if kind == 'Custom':
+                    old_path, _, old_info, _ = rows[previous_index]
+                    rows[previous_index] = (old_path, None, old_info, 'overridden')
+                else:
+                    # Normally Built-in files are visited first, but ensure the
+                    # same priority even if discovery order changes.
+                    rows.append((path, None, info, 'overridden'))
+                    continue
+            names[key] = (len(rows), kind)
             rows.append((path, plugin, info, None))
         except Exception as exc:
             rows.append((path, None, None, str(exc)))

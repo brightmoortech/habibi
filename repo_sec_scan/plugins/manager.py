@@ -10,9 +10,9 @@ from .security import inspect, inspect_interface, read_rules
 
 
 def _table(rows):
-    cols = ('PLUGIN NAME', 'VERSION', 'FILENAME')
+    cols = ('PLUGIN NAME', 'VERSION', 'FILENAME', 'TYPE', 'STATUS')
     data = [cols] + [tuple(map(str, row)) for row in rows]
-    widths = [max(len(row[i]) for row in data) for i in range(3)]
+    widths = [max(len(row[i]) for row in data) for i in range(len(cols))]
     for index, row in enumerate(data):
         print('  '.join(cell.ljust(widths[i]) for i, cell in enumerate(row)))
         if index == 0:
@@ -20,8 +20,31 @@ def _table(rows):
 
 
 def _matching(name):
+    """Use direct filenames first, avoiding a full inventory for common lookups.
+
+    Display names can differ from filenames, so retain a fallback for those.
+    """
+    stem = name[:-3] if name.lower().endswith('.py') else name
+    paths = [directory / (stem.lower() + '.py') for directory in
+             (registry.BUILTIN_DIRECTORY, registry.external_directory())]
+    # Actual case-preserving filenames may differ on case-sensitive systems.
+    found = [path for path in paths if path.is_file() and not path.is_symlink()]
+    if found:
+        rows = []
+        for path in found:
+            try:
+                plugin, info = registry.load(path)
+                if not name.lower().endswith('.py') and info['name'].casefold() != name.casefold():
+                    continue
+                rows.append((path, plugin, info, None))
+            except Exception as exc:
+                rows.append((path, None, None, str(exc)))
+        if rows:
+            return rows
     rows = registry.inventory()
-    return [row for row in rows if (row[2] and row[2]['name'].casefold() == name.casefold()) or row[0].stem.casefold() == name.casefold()]
+    return [row for row in rows if (row[2] and row[2]['name'].casefold() == name.casefold())
+            or row[0].stem.casefold() == stem.casefold()]
+
 
 
 def _execute_as_user():
@@ -52,8 +75,9 @@ def _install(path):
         raise ValueError('source is already the installed file')
     existing = _matching(meta['name'])
     for candidate, _, details, error in existing:
-        if candidate.resolve() == registry.BUILTIN_DIRECTORY / candidate.name:
-            raise ValueError('cannot replace a bundled plugin independently')
+        if candidate.parent == registry.BUILTIN_DIRECTORY:
+            # Built-in remains intact; installed Custom plugin takes precedence.
+            continue
         if error:
             # A damaged installation must remain repairable with the same
             # install command. We cannot compare its unavailable version.
@@ -132,15 +156,20 @@ def plugin_command(argv):
             return _install(args.file)
         if args.action == 'list':
             _execute_as_user()
-            rows = [(info['name'], info['version'], path.name) if info else ('[INVALID]', '-', path.name)
-                    for path, _, info, _ in registry.inventory()]
+            rows = []
+            for path, _, info, error in registry.inventory():
+                kind = 'Built-in' if path.parent == registry.BUILTIN_DIRECTORY else 'Custom'
+                status = 'Overridden' if error == 'overridden' else 'Invalid' if error else 'Active'
+                rows.append((info['name'] if info else '[INVALID]',
+                             info['version'] if info else '-', path.name, kind, status))
             _table(rows)
             return 0
         if args.action == 'audit':
             # Static checks run before importing plugin code, including info().
             if args.name:
                 # Filter candidate paths by file stem first; only load after static scan.
-                targets = [p for p in registry.candidates() if p.stem.casefold() == args.name.casefold()]
+                stem = args.name[:-3] if args.name.lower().endswith('.py') else args.name
+                targets = [p for p in registry.candidates() if p.stem.casefold() == stem.casefold()]
                 if not targets:
                     _execute_as_user()
                     targets = [path for path, _, info, _ in registry.inventory() if info and info['name'].casefold() == args.name.casefold()]
@@ -174,7 +203,7 @@ def plugin_command(argv):
             return 2
         if args.action == 'info':
             for path, _, info, error in matching:
-                if error:
+                if error and error != 'overridden':
                     print(f'{path.name}: {error}')
                     return 1
                 print('Name:', info['name'])
@@ -182,11 +211,18 @@ def plugin_command(argv):
                 print('Technologies:', ', '.join(info['technologies']))
                 print('Description:', info['description'])
                 print('Filename:', path.name)
+                print('Type:', 'Built-in' if path.parent == registry.BUILTIN_DIRECTORY else 'Custom')
+                overridden = (path.parent == registry.BUILTIN_DIRECTORY and any(
+                    other[0].parent != registry.BUILTIN_DIRECTORY and other[2] and info and
+                    other[2]['name'].casefold() == info['name'].casefold() and other[3] is None
+                    for other in matching))
+                print('Status:', 'Overridden' if overridden or error == 'overridden' else 'Active')
             return 0
         if args.action == 'remove':
-            for path, _, _, _ in matching:
-                if path.parent == registry.BUILTIN_DIRECTORY:
-                    raise ValueError('bundled plugin cannot be removed independently')
+            custom = [path for path, _, _, _ in matching if path.parent != registry.BUILTIN_DIRECTORY]
+            if not custom:
+                raise ValueError('Built-in plugin cannot be removed; install a Custom override instead')
+            for path in custom:
                 path.unlink()
                 print('Removed:', path.name)
             return 0

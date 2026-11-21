@@ -249,7 +249,7 @@ class PluginLifecycleTests(unittest.TestCase):
     def test_legacy_cli_and_help(self):
         env = dict(os.environ)
         command = [os.sys.executable, '-m', 'repo_sec_scan']
-        test = subprocess.run(command + ['--list-plugins'], capture_output=True, text=True, env=env)
+        test = subprocess.run(command + ['plugins', 'list'], capture_output=True, text=True, env=env)
         self.assertEqual(test.returncode, 0, test.stderr)
         self.assertIn('FILENAME', test.stdout)
         help_result = subprocess.run(command + ['--help'], capture_output=True, text=True, env=env)
