@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repo-sec-scan"
+version = "0.2.1"
+description = "Modular read-only Git repository public-release security auditor"
+requires-python = ">=3.9"
+dependencies = ["tomli>=2.0; python_version < '3.11'"]
+license = {text = "MIT"}
+
+[project.scripts]
+secscan = "repo_sec_scan.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["repo_sec_scan*"]
