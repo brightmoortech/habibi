@@ -33,37 +33,38 @@ CLI (repo_sec_scan/cli.py)
 
 Generic scanning always runs. A plugin supplements rather than replaces it. Plugin failures are marked **incomplete**, never as a pass. The scan does not call Windmill APIs, query PostgreSQL, modify repositories, or fetch remote Git refs.
 
-## Installation
+## Installation and upgrades (macOS and Linux)
 
-Required tools:
-
-- Python **3.9 or newer** (`tomli` is installed as a conditional dependency on Python 3.9–3.10; Python 3.11+ uses built-in `tomllib`).
-- Git.
-- Gitleaks **v8** with `git` and `dir` commands.
-
-Clone or extract this repository and run it without installing the Python package:
+From the downloaded or cloned `repo-sec-scan` folder, use the **same command** for a first install and an upgrade:
 
 ```bash
-cd repo-sec-scan
-python3 -m repo_sec_scan --help
-python3 -m repo_sec_scan /path/to/a/git/project
+sudo ./install.sh
 ```
 
-Or install the CLI locally:
+The installer makes `secscan` available to all users through `/usr/local/bin/secscan`. The Python package runs in its own environment under `/usr/local/lib/repo-sec-scan/releases/`, rather than changing the system Python installation. Python 3.9+ and its `venv` module are required; the included wheel avoids downloading build dependencies for a normal install on current Python versions. A Python 3.9/3.10 installation may additionally need the `tomli` dependency from a configured package index.
+
+The installer checks the current release and upgrades only when the new version is higher. It does nothing when versions match, blocks downgrades, checks the new executable and bundled plugin registry, and retains the previous release for rollback if verification fails. It refuses to overwrite an unrelated existing `/usr/local/bin/secscan` command. Do not use an unreviewed or untrusted source archive with `sudo`.
+
+After installation:
 
 ```bash
-python3 -m pip install .
-secscan /path/to/a/git/project
+secscan --help
+secscan /path/to/project
+secscan /path/to/project --stop-on-finding
 ```
 
-Before scanning all remote history, **manually** refresh refs in the *target* repository if allowed:
+For installation options: `./install.sh --help`. `SECSCAN_PREFIX` allows testing under a different prefix without changing the host installation. The installer does not install Git or Gitleaks; these are scanning prerequisites. At scan time, `secscan --install-missing` can offer to install them interactively through Homebrew/APT. The scanner itself never upgrades `secscan`.
+
+For developers who do not want a host-level installation, `python3 -m repo_sec_scan --help` remains available from the source directory. Normal users should use `secscan`.
+
+Before scanning remote history, refresh Git references in the target repository if permitted:
 
 ```bash
-cd /path/to/a/git/project
+cd /path/to/project
 git fetch origin --prune --tags
 ```
 
-The auditor never fetches, pushes, rewrites history or edits tracked files. `--install-missing` offers installation for Git/Gitleaks **only** after a per-tool confirmation: Homebrew on macOS (or Linux with Homebrew), APT via `sudo` on supported Linux machines. The Linux package source may not provide Gitleaks; failure is reported. Python itself must already be installed. Never run installation on production machines without reviewing the proposed package-manager command.
+The scanner does not fetch, push, rewrite Git history or modify tracked project files.
 
 ## CLI options
 
@@ -79,9 +80,9 @@ The auditor never fetches, pushes, rewrites history or edits tracked files. `--i
 Example:
 
 ```bash
-python3 -m repo_sec_scan ~/Development/develop/automation_lab --report ~/audit-output.json
-python3 -m repo_sec_scan /path/to/repo --stop-on-finding
-python3 -m repo_sec_scan --list-plugins
+secscan ~/Development/develop/automation_lab --report ~/audit-output.json
+secscan /path/to/repo --stop-on-finding
+secscan --list-plugins
 ```
 
 Exit codes: **0** completed without findings, **1** completed with findings, **2** error or incomplete scan (including early stop and skipped supported files). A zero exit code does not certify safe public release.

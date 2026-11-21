@@ -37,7 +37,18 @@ def install_missing(missing):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Read-only public Git repository secret and configuration audit.')
+    parser = argparse.ArgumentParser(
+        prog='secscan',
+        description='Read-only Git repository security audit.',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''Examples:
+  secscan                         Scan the current repository
+  secscan /path/to/repository     Scan another Git repository
+  secscan --stop-on-finding       Stop at the first high-severity potential exposure
+  secscan --report ~/audit.json   Save a JSON report outside the repository
+  secscan --list-plugins          List specialized scanners
+  secscan --help                  Show this help'''
+    )
     parser.add_argument('repository', nargs='?', default='.', help='Git project root or a path inside it (default: current directory)')
     parser.add_argument('--stop-on-finding', action='store_true', help='Stop at first high-severity potential exposure; warnings do not stop the audit')
     parser.add_argument('--install-missing', action='store_true', help='Offer interactive Homebrew/APT installation for missing Git/Gitleaks (never silent)')
