@@ -10,7 +10,7 @@ A modular, **read-only-by-default** security audit tool for Git repositories tha
 - Scans accessible repository files for recognizable credential assignments and sensitive filenames.
 - Inventories declared package and image names from supported repository manifests without guessing product names. It does not inspect machine-installed software or execute detected code.
 - Runs a dedicated scanner when a supported technology is detected. Otherwise explicitly reports **no specialized handling; generic scan applied**.
-- **Included independent security plugins:** Windmill and PostgreSQL. Plugins own their package matching and configuration detection. Additional plugins can be installed using Python entry points without changing the core.
+- **Included independent security plugins:** Windmill and PostgreSQL. Plugins own their package matching and configuration detection. Additional plugins are discovered from a dedicated plugin directory without changing the core.
 - Default completes all checks; `--stop-on-finding` exits early when a **high-severity potential exposure** is reported; review-only warnings do not stop the scan.
 - Does not print matched secret values or source lines. Optional JSON report is written outside the repository with restricted file permissions when supported.
 - Works on macOS and Linux with Python 3.9+.
@@ -24,7 +24,7 @@ CLI (repo_sec_scan/cli.py)
   │     ├── Gitleaks Git history / working directory / staged snapshot
   │     ├── generic repository scanning
   │     └── discovery.py: project markers + raw declared package/image names
-  ├── plugins/registry.py: built-ins + third-party entry-point plugins
+  ├── plugins/registry.py: directory discovery + security-first validation
   │     └── plugin.matches(package) / plugin.detect(context) → plugin.scan(context)
   │     ├── plugins/windmill.py: Windmill export/credential heuristics
   │     └── plugins/postgresql.py: SQL, authentication and credential heuristics
@@ -43,7 +43,7 @@ sudo ./install.sh
 
 The installer makes `secscan` available to all users through `/usr/local/bin/secscan`. The Python package runs in its own environment under `/usr/local/lib/repo-sec-scan/releases/`, rather than changing the system Python installation. Python 3.9+ and its `venv` module are required; the included wheel avoids downloading build dependencies for a normal install on current Python versions. A Python 3.9/3.10 installation may additionally need the `tomli` dependency from a configured package index.
 
-The installer checks the current release and upgrades only when the new version is higher. It does nothing when versions match, blocks downgrades, checks the new executable and bundled plugin registry, and retains the previous release for rollback if verification fails. It refuses to overwrite an unrelated existing `/usr/local/bin/secscan` command. Do not use an unreviewed or untrusted source archive with `sudo`.
+The installer checks the current release and upgrades only when the new version is higher. It does nothing when versions match, blocks core downgrades, statically checks bundled plugins without executing them as root, and retains the previous release for rollback if verification fails. It refuses to overwrite an unrelated existing `/usr/local/bin/secscan` command. Do not use an unreviewed or untrusted source archive with `sudo`.
 
 After installation:
 
@@ -75,7 +75,7 @@ The scanner does not fetch, push, rewrite Git history or modify tracked project 
 | `--stop-on-finding` | Stop on the first high-severity potential exposure. Review-only warnings do not stop the audit. Default runs all checks. |
 | `--install-missing` | Offer approved package-manager installation of missing Git/Gitleaks tools. No automatic installation by default. |
 | `--report PATH` | Save a JSON report; the script rejects a destination inside the audited repository. |
-| `--list-plugins` | List installed specialized scanners and exit. |
+| `--list-plugins` | Alias for `secscan plugins list` (name, version, filename). |
 
 Example:
 
@@ -119,45 +119,78 @@ This does not claim that `metabase/metabase:latest` has been validated by a Meta
 
 Neither plugin connects to a live service or reads live Windmill variables. Findings are candidates for review, not automatically proven security vulnerabilities.
 
-## How to extend it
+## Plugin development and security
 
-A plugin supplies three operations: `matches(package_name)`, `detect(context)` and `scan(context, stop_on_finding=False)`. `matches` recognizes declared names, `detect` recognizes other repository evidence, and `scan` returns sanitized findings. **No core discovery rules need changing to support a new plugin.**
+All plugins, including the bundled Windmill and PostgreSQL modules, are discovered from their installed Python files. There are **no hardcoded plugin names or registry entries**. Every plugin implements `info()` plus `PLUGIN.matches()`, `PLUGIN.detect()` and `PLUGIN.scan()`. Generic scanning continues when a plugin is absent or rejected, and coverage is marked incomplete for plugin loading failures.
+
+**Security warning:** Python plugins are executable code and may read, change or delete anything permitted to the running user. Only install code from trusted authors. An AST-based scan reduces the risk of some prohibited operations but **does not prove a plugin is safe**. Dynamic calls, aliases and indirect library behavior can evade detection. Never load plugins from a repository being scanned. Do not invoke plugin inspection or execution with `sudo`.
+
+### Complete Python plugin template
+
+Save as `example.py` (the filename is used during discovery):
 
 ```python
-from repo_sec_scan.models import Finding, PluginResult
+from repo_sec_scan.models import PluginResult
 
 class ExamplePlugin:
     name = "Example"
 
-    def matches(self, package_name):
+    def matches(self, package_name: str) -> bool:
         return package_name.lower() == "example-package"
 
-    def detect(self, context):
+    def detect(self, context) -> bool:
         return any(path.name == "example.conf" for path in context.files)
 
     def scan(self, context, stop_on_finding=False):
-        result = PluginResult(self.name, [self.name])
-        # Inspect context.files under context.root; do not execute repository code.
-        # Never store matched secrets in Finding.detail or log output.
+        result = PluginResult(self.name, ["Example"])
+        # Read repository files and append sanitized findings if necessary.
+        # Do not connect to services or modify the scanned repository.
         return result
 
 PLUGIN = ExamplePlugin()
+
+def info():
+    return {
+        "name": "Example",
+        "version": "1.0.0",
+        "technologies": ["Example"],
+        "description": "Example repository security checks",
+    }
 ```
 
-**Bundled plugin:** Add the module inside `repo_sec_scan/plugins/` and import its `PLUGIN` into `plugins/registry.py`.
+`info()` must return a dictionary with a unique plugin name, a numeric dot-separated version, a nonempty list of technologies and a nonempty description. `PLUGIN.name` must match the `info()` name. Plugin code is inspected statically before it is imported or `info()` is called.
 
-**Independently installed plugin:** Publish a Python distribution with this `pyproject.toml` entry-point declaration:
+### Commands
 
-```toml
-[project.entry-points."repo_sec_scan.plugins"]
-example = "example_scanner.plugin:PLUGIN"
+```bash
+secscan plugins list                 # Table: plugin name, version, filename
+secscan plugins info Example         # Metadata for one plugin
+secscan plugins audit                # Static security and interface audit of all
+secscan plugins audit Example        # Audit one plugin
+secscan plugins install ./example.py # New install, reinstall, upgrade or downgrade
+secscan plugins remove Example       # Remove an external plugin
 ```
 
-When the distribution is installed in the same Python environment as `secscan`, its plugin is discovered through Python package metadata. It does not need changes to the core or registry. The plugin must provide a unique `name`, and all three methods. Run `secscan --list-plugins` to verify installation.
+A third-party plugin is installed under `~/.local/share/secscan/plugins/` for the current user (or under the directory specified by `SECSCAN_PLUGIN_DIR`). The installer stages and validates replacement files before activation. Same-version installs replace the file, newer versions upgrade, and older versions ask for confirmation. If validation or activation fails, the existing file is retained or restored. Bundled plugins are discovered and updated with the core release; they cannot be removed or independently overwritten by these commands. No separate metadata database is maintained.
 
-Treat third-party plugins as **trusted executable code**: installing a plugin allows its Python code to run during plugin discovery and scanning. Only install plugins you trust. Plugin import errors are currently ignored during loading; `--list-plugins` shows what was successfully loaded, not a comprehensive import-error report.
+**Never run plugin commands with `sudo`.** The system-wide core installation (`sudo ./install.sh`) uses static inspection only and does not execute plugin Python code with administrator privileges. Third-party plugins are installed per-user to avoid elevated execution. The same plugin discovery and validation rules apply to bundled and external plugins.
 
-Test clean results, positive findings, false-positive boundaries, package matching, configuration-only detection, and early-stop behavior. Do not add network calls or file modification to scanners without an explicitly authorized separate feature.
+### Security rules file
+
+The user-editable file `plugin_security_rules.txt` contains prohibited function names, one per line. For system-wide installations the initial policy is placed at `/usr/local/share/secscan/plugin_security_rules.txt` (under the selected installation prefix); it is **not overwritten on upgrades**. To supply a different policy, set `SECSCAN_PLUGIN_RULES=/path/to/rules.txt`. When working from the source tree, the bundled default file is used if no override exists.
+
+Example:
+
+```text
+# Calls to these functions are rejected
+os.remove
+shutil.rmtree
+subprocess.run
+eval
+exec
+```
+
+The Python AST inspector ignores comments, detects direct function calls and some imported aliases, and reports the line number and operation. Invalid rules, malformed source and recognized prohibited calls fail inspection. This is a heuristic policy, not a sandbox or guarantee of safety. Add additional names to the flat file as needed. Installation and audit perform security inspection before any plugin code is executed.
 
 ## Audit coverage and limitations
 

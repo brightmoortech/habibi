@@ -51,3 +51,12 @@ class WindmillPlugin:
         return result
 
 PLUGIN = WindmillPlugin()
+
+
+def info():
+    return {
+        "name": "Windmill",
+        "version": "1.0.0",
+        "technologies": ["Windmill"],
+        "description": "Windmill repository security checks",
+    }

@@ -48,10 +48,19 @@ class PostgreSQLPlugin:
                         for regex, category, severity in checks:
                             if regex.search(line):
                                 result.findings.append(Finding(self.name, category, severity, rel, lineno))
-                                if stop_on_finding:
+                                if stop_on_finding and severity == 'high':
                                     return result
             except OSError:
                 result.coverage_issues.append(f'{rel}: {self.name} scan could not read file')
         return result
 
 PLUGIN = PostgreSQLPlugin()
+
+
+def info():
+    return {
+        "name": "PostgreSQL",
+        "version": "1.0.0",
+        "technologies": ["PostgreSQL"],
+        "description": "PostgreSQL repository security checks",
+    }

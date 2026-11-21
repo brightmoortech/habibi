@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from .models import Context, Finding
 from .discovery import discover, discover_packages
-from .plugins.registry import PLUGINS
+from .plugins.registry import inventory
 
 SENSITIVE_NAME = re.compile(r'(?i)(?:^|/)(?:\.env(?:\..+)?|id_rsa|id_ed25519|[^/]+\.(?:pem|p12|pfx|key)|credentials(?:\..+)?|secrets?(?:\..+)?)$')
 ASSIGNMENT = re.compile(r'''(?i)\b(?:client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|password)\b\s*[:=]\s*['"]([^'"\s]{8,})['"]''')
@@ -174,12 +174,18 @@ def audit(root: Path, stop_on_finding=False):
     if append(found):
         return outcome
 
+    plugin_rows = inventory(exclude_root=root)
+    plugins = [p for _, p, _, error in plugin_rows if error is None]
+    for path, _, _, error in plugin_rows:
+        if error:
+            outcome['coverage'][f'plugin_load:{path.name}'] = 'plugin-error (incomplete): ' + error
+
     # Declared names are never normalized to guessed products by the core.
     # Each registered plugin owns its package and configuration recognition.
     active = {}
     for package in packages:
         matches = []
-        for plugin in PLUGINS:
+        for plugin in plugins:
             try:
                 if plugin.matches(package):
                     matches.append(plugin)
@@ -192,7 +198,7 @@ def audit(root: Path, stop_on_finding=False):
         else:
             outcome['coverage'][f'package:{package}'] = 'generic-only (no specialized plugin available)'
 
-    for plugin in PLUGINS:
+    for plugin in plugins:
         try:
             if plugin.detect(ctx):
                 active[plugin.name] = plugin

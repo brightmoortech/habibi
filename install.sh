@@ -131,7 +131,13 @@ actual = version('repo-sec-scan')
 if actual != sys.argv[1]: raise SystemExit(f'Installed version mismatch: {actual}')
 PYVERIFY
 "$RELEASES/$VERSION/bin/secscan" --help >/dev/null
-"$RELEASES/$VERSION/bin/secscan" --list-plugins >/dev/null
+RULES_DIR="$PREFIX/share/secscan"
+mkdir -p "$RULES_DIR"
+# User-editable policy survives core upgrades; never overwrite an existing policy.
+if [[ ! -e "$RULES_DIR/plugin_security_rules.txt" ]]; then
+  cp "$SCRIPT_DIR/repo_sec_scan/plugins/plugin_security_rules.txt" "$RULES_DIR/plugin_security_rules.txt"
+fi
+"$RELEASES/$VERSION/bin/secscan" plugins audit --static-only >/dev/null
 
 "$PYTHON" - "$CURRENT" "$RELEASES/$VERSION" <<'PY'
 import os, pathlib, sys
@@ -142,7 +148,7 @@ PY
 SWITCHED=1
 if [[ ! -L "$LAUNCHER" ]]; then ln -s "$CURRENT/bin/secscan" "$LAUNCHER"; fi
 "$LAUNCHER" --help >/dev/null
-"$LAUNCHER" --list-plugins >/dev/null
+"$LAUNCHER" plugins audit --static-only >/dev/null
 SWITCHED=0
 COMMITTED=0
 printf 'Installed secscan %s at %s\n' "$VERSION" "$LAUNCHER"

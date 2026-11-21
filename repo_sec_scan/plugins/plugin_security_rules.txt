@@ -1,0 +1,20 @@
+# User-editable AST rules: fully qualified Python function names, one per line.
+# Blocking rules are only a heuristic; plugins must be trusted before execution.
+os.remove
+os.unlink
+os.rmdir
+os.removedirs
+shutil.rmtree
+shutil.move
+pathlib.Path.unlink
+pathlib.Path.rmdir
+pathlib.Path.write_text
+pathlib.Path.write_bytes
+os.system
+subprocess.run
+subprocess.Popen
+subprocess.call
+subprocess.check_call
+subprocess.check_output
+eval
+exec

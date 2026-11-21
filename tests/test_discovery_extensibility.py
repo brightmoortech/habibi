@@ -88,22 +88,20 @@ Path(args[args.index('--report-path')+1]).write_text('[]')
         self.assertEqual(result['coverage']['plugin:PostgreSQL'], 'findings')
         self.assertNotIn('plugin:Windmill', result['coverage'])
 
-    def test_external_plugin_loading(self):
-        class Extra:
-            name = 'Extra'
-            def matches(self, package): return package == 'extra'
-            def detect(self, context): return False
-            def scan(self, context, stop_on_finding=False): return PluginResult(self.name)
-
-        class Entry:
-            def load(self): return Extra
-
-        class Entries:
-            def select(self, group):
-                self.group = group
-                return [Entry()]
-        with patch('repo_sec_scan.plugins.registry.metadata.entry_points', return_value=Entries()):
-            names = [p.name for p in load_plugins()]
+    def test_directory_plugin_loading(self):
+        with tempfile.TemporaryDirectory() as folder:
+            plugin = Path(folder) / 'extra.py'
+            plugin.write_text("""from repo_sec_scan.models import PluginResult
+class Extra:
+    name = 'Extra'
+    def matches(self, package): return package == 'extra'
+    def detect(self, context): return False
+    def scan(self, context, stop_on_finding=False): return PluginResult(self.name)
+PLUGIN = Extra()
+def info(): return {'name': 'Extra', 'version': '1.0.0', 'technologies': ['Extra'], 'description': 'test'}
+""")
+            with patch.dict(os.environ, {'SECSCAN_PLUGIN_DIR': folder}):
+                names = [p.name for p in load_plugins()]
         self.assertIn('Extra', names)
         self.assertIn('PostgreSQL', names)
         self.assertIn('Windmill', names)

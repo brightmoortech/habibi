@@ -45,6 +45,10 @@ class ScannerTests(unittest.TestCase):
         ctx=self.ctx({'schema.sql':'DROP TABLE app.clients CASCADE;\n'})
         self.assertEqual(PG.scan(ctx).findings[0].severity, 'warning')
 
+    def test_postgres_stop_on_finding_ignores_review_warnings(self):
+        ctx=self.ctx({'schema.sql': 'DROP TABLE app.clients CASCADE;\nGRANT ALL ON app.clients TO PUBLIC;\n'})
+        self.assertEqual(len(PG.scan(ctx, stop_on_finding=True).findings), 2)
+
     def test_generic_literal(self):
         ctx=self.ctx({'settings.py':'password = "some-example-secret"\n'})
         self.assertEqual(generic_scan(ctx)[0].severity, 'high')

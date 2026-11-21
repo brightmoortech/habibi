@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 from .core import audit
+from .plugins.manager import plugin_command
 
 
 def install_missing(missing):
@@ -46,7 +47,10 @@ def main(argv=None):
   secscan /path/to/repository     Scan another Git repository
   secscan --stop-on-finding       Stop at the first high-severity potential exposure
   secscan --report ~/audit.json   Save a JSON report outside the repository
-  secscan --list-plugins          List specialized scanners
+  secscan plugins list           Show plugin name, version and filename
+  secscan plugins audit [name]   Audit all plugins or one plugin
+  secscan plugins install FILE   Install or replace a trusted plugin
+  secscan --list-plugins          Alias for plugins list
   secscan --help                  Show this help'''
     )
     parser.add_argument('repository', nargs='?', default='.', help='Git project root or a path inside it (default: current directory)')
@@ -54,11 +58,12 @@ def main(argv=None):
     parser.add_argument('--install-missing', action='store_true', help='Offer interactive Homebrew/APT installation for missing Git/Gitleaks (never silent)')
     parser.add_argument('--report', metavar='PATH', help='Write JSON report (avoid placing report inside the repository)')
     parser.add_argument('--list-plugins', action='store_true', help='Show installed specialized scanner plugins and exit')
-    args = parser.parse_args(argv)
+    args_list = list(sys.argv[1:] if argv is None else argv)
+    if args_list and args_list[0] == 'plugins':
+        return plugin_command(args_list[1:])
+    args = parser.parse_args(args_list)
     if args.list_plugins:
-        from .plugins.registry import PLUGINS
-        for p in PLUGINS:
-            print(p.name)
+        return plugin_command(['list'])
         return 0
     missing = [item for item in ('git', 'gitleaks') if not shutil.which(item)]
     if missing and not (args.install_missing and install_missing(missing)):
